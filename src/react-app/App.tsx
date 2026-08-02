@@ -1866,84 +1866,140 @@ function App() {
     );
   }
   if (page === "propertylist") {
+    type PropRow = PropertyForm & { _new?: boolean; _dirty?: boolean };
+    const blankRow = (): PropRow => ({ propertyName: '', rentalAgency: '', cleanPrice: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '', _new: true, _dirty: true });
+    const [massRows, setMassRows] = React.useState<PropRow[]>(() => properties.map(p => ({ ...p })));
+    const [newRows, setNewRows] = React.useState<PropRow[]>([blankRow()]);
+    const [massSaving, setMassSaving] = React.useState(false);
+    const [massSaved, setMassSaved] = React.useState(false);
+
+    // Sync existing rows when properties reload
+    React.useEffect(() => { setMassRows(properties.map((p: PropertyForm) => ({ ...p }))); }, [properties]);
+
+    const cellStyle: React.CSSProperties = { border: '1px solid #ccc', padding: 0 };
+    const inputStyle: React.CSSProperties = { width: '100%', border: 'none', padding: '6px 7px', fontSize: 13, background: 'transparent', boxSizing: 'border-box', outline: 'none' };
+    const thStyle: React.CSSProperties = { border: '1px solid #b0b8cc', padding: '8px 9px', background: '#1a3a7a', color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' };
+
+    const updateExisting = (idx: number, field: keyof PropertyForm, val: string) => {
+      setMassRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: val, _dirty: true } : r));
+    };
+    const updateNew = (idx: number, field: keyof PropertyForm, val: string) => {
+      setNewRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+    };
+    const addNewRow = () => setNewRows(rows => [...rows, blankRow()]);
+    const removeNewRow = (idx: number) => setNewRows(rows => rows.filter((_, i) => i !== idx));
+
+    const saveAll = async () => {
+      setMassSaving(true);
+      setMassSaved(false);
+      try {
+        // Save dirty existing rows
+        for (const row of massRows) {
+          if (row._dirty && row.id) {
+            await api.updateProperty(row.id, row);
+          }
+        }
+        // Create filled new rows
+        const toCreate = newRows.filter(r => r.propertyName.trim());
+        for (const row of toCreate) {
+          await api.createProperty(row);
+        }
+        await loadAllData();
+        setNewRows([blankRow()]);
+        setMassSaved(true);
+        setTimeout(() => setMassSaved(false), 3000);
+      } catch (err) {
+        console.error(err);
+        alert('Save failed. Please try again.');
+      } finally {
+        setMassSaving(false);
+      }
+    };
+
+    const cols: { key: keyof PropertyForm; label: string; width?: number; type?: string }[] = [
+      { key: 'propertyName', label: 'Property Name', width: 160 },
+      { key: 'rentalAgency', label: 'Rental Agency', width: 140 },
+      { key: 'cleanPrice', label: 'Clean Price $', width: 90, type: 'number' },
+      { key: 'address', label: 'Address', width: 120 },
+      { key: 'street', label: 'Street', width: 110 },
+      { key: 'city', label: 'City', width: 100 },
+      { key: 'state', label: 'State', width: 60 },
+      { key: 'zip', label: 'Zip', width: 70 },
+      { key: 'ownerName', label: 'Owner Name', width: 120 },
+      { key: 'ownerPhone', label: 'Owner Phone', width: 120 },
+    ];
+
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", padding: '1rem' }}>
-        <h1>Property List</h1>
-        {properties.length === 0 ? (
-          <p>No properties have been added yet.</p>
-        ) : (
-          <table style={{ borderCollapse: "collapse", minWidth: 700, margin: "1rem 0", width: '100%', maxWidth: 1300 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', padding: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 1400, marginBottom: 12 }}>
+          <h1 style={{ margin: 0 }}>Property List</h1>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {massSaved && <span style={{ color: '#2a9d2a', fontWeight: 700, fontSize: 14 }}>✓ Saved!</span>}
+            <button onClick={addNewRow} style={{ background: '#0099FF', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>+ Add Row</button>
+            <button onClick={saveAll} disabled={massSaving} style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+              {massSaving ? 'Saving…' : '💾 Save All'}
+            </button>
+            <button onClick={() => setPage('home')} style={{ background: '#888', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>← Back</button>
+          </div>
+        </div>
+        <div style={{ width: '100%', maxWidth: 1400, overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 900 }}>
             <thead>
               <tr>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Property Name</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Rental Agency</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Clean Price</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Address</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>City</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>State</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Owner Name</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Owner Phone</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Actions</th>
+                {cols.map(c => <th key={c.key} style={{ ...thStyle, width: c.width }}>{c.label}</th>)}
+                <th style={{ ...thStyle, width: 60 }}>Del</th>
               </tr>
             </thead>
             <tbody>
-              {properties.map((prop: PropertyForm, idx: number) => (
-                <tr key={idx}>
-                  <td style={{ border: "1px solid #444", padding: "8px", fontWeight: 600 }}>{prop.propertyName}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.rentalAgency || '—'}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px", fontWeight: 700, color: '#2a9d2a' }}>{prop.cleanPrice ? `$${parseFloat(prop.cleanPrice).toFixed(2)}` : '—'}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{[prop.address, prop.street].filter(Boolean).join(' ') || '—'}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.city || '—'}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.state || '—'}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.ownerName || '—'}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.ownerPhone || '—'}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px", textAlign: "center", whiteSpace: 'nowrap' }}>
-                    <button style={{ background: '#6c3db5', color: 'white', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', marginRight: 6 }} onClick={() => { setEditingProperty(prop); setEditPropertyForm({ ...prop }); }}>✏️ Edit</button>
+              {/* Existing rows */}
+              {massRows.map((row, idx) => (
+                <tr key={row.id ?? idx} style={{ background: row._dirty ? '#fffbea' : idx % 2 === 0 ? '#fff' : '#f7f9ff' }}>
+                  {cols.map(c => (
+                    <td key={c.key} style={cellStyle}>
+                      <input
+                        type={c.type || 'text'}
+                        value={(row[c.key] as string) || ''}
+                        onChange={e => updateExisting(idx, c.key, e.target.value)}
+                        style={{ ...inputStyle, background: row._dirty ? '#fffbe6' : 'transparent' }}
+                      />
+                    </td>
+                  ))}
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>
                     {authUser?.userType === 'admin' && (
-                      <button style={{ background: "#ff4d4d", color: "white", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer" }} onClick={() => handleDeleteProperty(prop)}>🗑 Delete</button>
+                      <button onClick={() => handleDeleteProperty(row)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4d4d', fontSize: 16, padding: '4px 8px' }} title="Delete">🗑</button>
                     )}
+                  </td>
+                </tr>
+              ))}
+              {/* New rows */}
+              {newRows.map((row, idx) => (
+                <tr key={`new-${idx}`} style={{ background: '#edfff2' }}>
+                  {cols.map(c => (
+                    <td key={c.key} style={{ ...cellStyle, background: '#edfff2' }}>
+                      <input
+                        type={c.type || 'text'}
+                        value={(row[c.key] as string) || ''}
+                        onChange={e => updateNew(idx, c.key, e.target.value)}
+                        placeholder={c.key === 'propertyName' ? '← required' : ''}
+                        style={{ ...inputStyle, background: '#edfff2' }}
+                      />
+                    </td>
+                  ))}
+                  <td style={{ ...cellStyle, textAlign: 'center', background: '#edfff2' }}>
+                    <button onClick={() => removeNewRow(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4d4d', fontSize: 16, padding: '4px 8px' }} title="Remove row">✕</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-        <button onClick={() => setPage("home")}>Return to Home</button>
-
-        {/* Edit Property Modal */}
-        {editingProperty && (
-          <div className="photo-modal">
-            <div className="photo-modal-content" style={{ maxWidth: 500 }}>
-              <h2>Edit Property</h2>
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                if (!editingProperty.id) return;
-                setEditPropertySaving(true);
-                try {
-                  await api.updateProperty(editingProperty.id, editPropertyForm);
-                  await loadAllData();
-                  setEditingProperty(null);
-                } catch { alert('Save failed.'); }
-                finally { setEditPropertySaving(false); }
-              }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {(['propertyName','rentalAgency','address','street','city','state','zip','ownerName','ownerPhone'] as (keyof PropertyForm)[]).map(field => (
-                  <label key={field} style={{ fontWeight: 600, fontSize: 13, gridColumn: field === 'address' || field === 'propertyName' || field === 'rentalAgency' ? '1/-1' : undefined }}>
-                    {field === 'rentalAgency' ? 'Rental Agency' : field === 'cleanPrice' ? 'Clean Price ($)' : field.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
-                    <input value={editPropertyForm[field] as string || ''} onChange={e => setEditPropertyForm(p => ({ ...p, [field]: e.target.value }))} required={field !== 'rentalAgency' && field !== 'street'} style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
-                  </label>
-                ))}
-                <label style={{ fontWeight: 600, fontSize: 13 }}>
-                  Clean Price ($)
-                  <input type="number" min="0" step="0.01" value={editPropertyForm.cleanPrice || ''} onChange={e => setEditPropertyForm(p => ({ ...p, cleanPrice: e.target.value }))} placeholder="0.00" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
-                </label>
-                <div style={{ gridColumn: '1/-1', display: 'flex', gap: 10, marginTop: 4 }}>
-                  <button type="submit" disabled={editPropertySaving} style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 22px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{editPropertySaving ? 'Saving...' : '✓ Save'}</button>
-                  <button type="button" onClick={() => setEditingProperty(null)} style={{ background: '#888', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
+          <button onClick={addNewRow} style={{ background: '#0099FF', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>+ Add Row</button>
+          <button onClick={saveAll} disabled={massSaving} style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+            {massSaving ? 'Saving…' : '💾 Save All'}
+          </button>
+        </div>
+        <p style={{ color: '#888', fontSize: 12, marginTop: 8 }}>Green rows = new (not yet saved). Yellow rows = edited (unsaved changes). Click <strong>Save All</strong> to commit.</p>
       </div>
     );
   }
