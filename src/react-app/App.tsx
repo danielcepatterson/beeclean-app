@@ -102,6 +102,110 @@ type WorkOrderExpense = {
   createdAt?: string;
 };
 
+function TimerCard({ woNumber, viewWOExpenses, setViewWOExpenses }: {
+  woNumber: string;
+  viewWOExpenses: WorkOrderExpense[];
+  setViewWOExpenses: (exps: WorkOrderExpense[]) => void;
+}) {
+  const timerKey = `cleanTimer_${woNumber}`;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(timerKey) || 'null'); } catch { return null; } })();
+  const [timerState, setTimerState] = React.useState<{ running: boolean; startEpoch: number | null; elapsed: number }>(
+    saved || { running: false, startEpoch: null, elapsed: 0 }
+  );
+  const [display, setDisplay] = React.useState(timerState.elapsed);
+
+  React.useEffect(() => {
+    if (!timerState.running) { setDisplay(timerState.elapsed); return; }
+    const id = setInterval(() => {
+      const now = Date.now();
+      setDisplay(timerState.elapsed + Math.floor((now - (timerState.startEpoch || now)) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timerState]);
+
+  const persist = (s: typeof timerState) => { localStorage.setItem(timerKey, JSON.stringify(s)); setTimerState(s); };
+
+  const fmtTime = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  };
+
+  const currentElapsed = timerState.running
+    ? timerState.elapsed + Math.floor((Date.now() - (timerState.startEpoch || Date.now())) / 1000)
+    : timerState.elapsed;
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #b0c0e0', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
+      <h2 style={{ margin: '0 0 16px', fontSize: 16, color: '#333' }}>Labor Timer</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <div style={{ fontSize: 52, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: timerState.running ? '#2a9d2a' : '#1a3a7a', letterSpacing: 2 }}>
+          {fmtTime(display)}
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {!timerState.running ? (
+            <button onClick={() => persist({ running: true, startEpoch: Date.now(), elapsed: timerState.elapsed })}
+              style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
+              ▶ {timerState.elapsed > 0 ? 'Resume' : 'Start'}
+            </button>
+          ) : (
+            <button onClick={() => {
+              const elapsed = timerState.elapsed + Math.floor((Date.now() - (timerState.startEpoch || Date.now())) / 1000);
+              persist({ running: false, startEpoch: null, elapsed });
+            }} style={{ background: '#ff9900', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
+              ⏸ Pause
+            </button>
+          )}
+          <button onClick={async () => {
+            if (currentElapsed < 60) { alert('Timer must run for at least 1 minute.'); return; }
+            if (!confirm(`Log ${fmtTime(currentElapsed)} of labor for this clean?`)) return;
+            const hours = currentElapsed / 3600;
+            await api.createWorkOrderExpense(woNumber, {
+              description: fmtTime(currentElapsed),
+              category: 'Labor',
+              quantity: String(hours.toFixed(4)),
+              unitCost: '0',
+              totalCost: '0',
+              vendor: '',
+              partNumber: '',
+            });
+            persist({ running: false, startEpoch: null, elapsed: 0 });
+            setDisplay(0);
+            const expenses = await api.fetchWorkOrderExpenses(woNumber);
+            setViewWOExpenses(expenses);
+          }} disabled={currentElapsed < 60}
+            style={{ background: currentElapsed >= 60 ? '#1a3a7a' : '#ccc', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: currentElapsed >= 60 ? 'pointer' : 'default' }}>
+            ✓ End &amp; Log
+          </button>
+          {timerState.elapsed > 0 && !timerState.running && (
+            <button onClick={() => { if (!confirm('Reset timer?')) return; persist({ running: false, startEpoch: null, elapsed: 0 }); setDisplay(0); }}
+              style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+              ✕ Reset
+            </button>
+          )}
+        </div>
+        {viewWOExpenses.filter(e => e.category === 'Labor').length > 0 && (
+          <div style={{ width: '100%' }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#1a3a7a', marginBottom: 8 }}>Logged Sessions</div>
+            <table className="wo-table" style={{ background: '#fff' }}>
+              <thead><tr><th>Duration</th><th></th></tr></thead>
+              <tbody>
+                {viewWOExpenses.filter(e => e.category === 'Labor').map((exp, i) => (
+                  <tr key={exp.id} style={{ background: i % 2 === 0 ? '#fff8ee' : '#fff' }}>
+                    <td style={{ fontWeight: 600, color: '#b35c00' }}>{exp.description}</td>
+                    <td><button onClick={async () => { if (!confirm('Delete this labor entry?')) return; await api.deleteWorkOrderExpense(exp.id); const expenses = await api.fetchWorkOrderExpenses(woNumber); setViewWOExpenses(expenses); }} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>🗑</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // ─── Auth state ─────────────────────────────────────────
   const [authUser, setAuthUser] = React.useState<{ id: number; username: string; userType: string } | null>(null);
@@ -1057,105 +1161,7 @@ function App() {
           </div>
 
           {/* Labor — Timer */}
-          {(() => {
-            const timerKey = `cleanTimer_${viewingWO.number}`;
-            const saved = (() => { try { return JSON.parse(localStorage.getItem(timerKey) || 'null'); } catch { return null; } })();
-            const [timerState, setTimerState] = React.useState<{ running: boolean; startEpoch: number | null; elapsed: number }>(
-              saved || { running: false, startEpoch: null, elapsed: 0 }
-            );
-            const [display, setDisplay] = React.useState(timerState.elapsed);
-
-            React.useEffect(() => {
-              if (!timerState.running) { setDisplay(timerState.elapsed); return; }
-              const id = setInterval(() => {
-                const now = Date.now();
-                setDisplay(timerState.elapsed + Math.floor((now - (timerState.startEpoch || now)) / 1000));
-              }, 1000);
-              return () => clearInterval(id);
-            }, [timerState]);
-
-            const persist = (s: typeof timerState) => { localStorage.setItem(timerKey, JSON.stringify(s)); setTimerState(s); };
-
-            const fmtTime = (secs: number) => {
-              const h = Math.floor(secs / 3600);
-              const m = Math.floor((secs % 3600) / 60);
-              const s = secs % 60;
-              return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-            };
-
-            const currentElapsed = timerState.running
-              ? timerState.elapsed + Math.floor((Date.now() - (timerState.startEpoch || Date.now())) / 1000)
-              : timerState.elapsed;
-
-            return (
-              <div style={{ background: '#fff', border: '1px solid #b0c0e0', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
-                <h2 style={{ margin: '0 0 16px', fontSize: 16, color: '#333' }}>Labor Timer</h2>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                  <div style={{ fontSize: 52, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: timerState.running ? '#2a9d2a' : '#1a3a7a', letterSpacing: 2 }}>
-                    {fmtTime(display)}
-                  </div>
-                  <div style={{ display: 'flex', gap: 12 }}>
-                    {!timerState.running ? (
-                      <button onClick={() => persist({ running: true, startEpoch: Date.now(), elapsed: timerState.elapsed })}
-                        style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
-                        ▶ {timerState.elapsed > 0 ? 'Resume' : 'Start'}
-                      </button>
-                    ) : (
-                      <button onClick={() => {
-                        const elapsed = timerState.elapsed + Math.floor((Date.now() - (timerState.startEpoch || Date.now())) / 1000);
-                        persist({ running: false, startEpoch: null, elapsed });
-                      }} style={{ background: '#ff9900', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
-                        ⏸ Pause
-                      </button>
-                    )}
-                    <button onClick={async () => {
-                      if (currentElapsed < 60) { alert('Timer must run for at least 1 minute.'); return; }
-                      if (!confirm(`Log ${fmtTime(currentElapsed)} of labor for this clean?`)) return;
-                      const hours = currentElapsed / 3600;
-                      await api.createWorkOrderExpense(viewingWO.number, {
-                        description: fmtTime(currentElapsed),
-                        category: 'Labor',
-                        quantity: String(hours.toFixed(4)),
-                        unitCost: '0',
-                        totalCost: '0',
-                        vendor: '',
-                        partNumber: '',
-                      });
-                      persist({ running: false, startEpoch: null, elapsed: 0 });
-                      setDisplay(0);
-                      const expenses = await api.fetchWorkOrderExpenses(viewingWO.number);
-                      setViewWOExpenses(expenses);
-                    }} disabled={currentElapsed < 60}
-                      style={{ background: currentElapsed >= 60 ? '#1a3a7a' : '#ccc', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: currentElapsed >= 60 ? 'pointer' : 'default' }}>
-                      ✓ End &amp; Log
-                    </button>
-                    {timerState.elapsed > 0 && !timerState.running && (
-                      <button onClick={() => { if (!confirm('Reset timer?')) return; persist({ running: false, startEpoch: null, elapsed: 0 }); setDisplay(0); }}
-                        style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-                        ✕ Reset
-                      </button>
-                    )}
-                  </div>
-                  {viewWOExpenses.filter(e => e.category === 'Labor').length > 0 && (
-                    <div style={{ width: '100%' }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: '#1a3a7a', marginBottom: 8 }}>Logged Sessions</div>
-                      <table className="wo-table" style={{ background: '#fff' }}>
-                        <thead><tr><th>Duration</th><th></th></tr></thead>
-                        <tbody>
-                          {viewWOExpenses.filter(e => e.category === 'Labor').map((exp, i) => (
-                            <tr key={exp.id} style={{ background: i % 2 === 0 ? '#fff8ee' : '#fff' }}>
-                              <td style={{ fontWeight: 600, color: '#b35c00' }}>{exp.description}</td>
-                              <td><button onClick={async () => { if (!confirm('Delete this labor entry?')) return; await api.deleteWorkOrderExpense(exp.id); const expenses = await api.fetchWorkOrderExpenses(viewingWO.number); setViewWOExpenses(expenses); }} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>🗑</button></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+          <TimerCard woNumber={viewingWO.number} viewWOExpenses={viewWOExpenses} setViewWOExpenses={setViewWOExpenses} />
 
           {/* Photos */}
           <div style={{ background: '#fff', border: '1px solid #b0c0e0', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
@@ -3807,9 +3813,17 @@ function App() {
 
         {previewInvoiceWO && (() => {
           const wo = previewInvoiceWO;
-          const exps = previewInvoiceExpenses;
-          const total = exps.reduce((s, e) => s + (parseFloat(e.totalCost) || 0), 0);
+          const rawExps = previewInvoiceExpenses;
           const prop = properties.find((p: PropertyForm) => p.propertyName === wo.propertyName);
+          const cleanPrice = parseFloat(wo.cleanPrice || prop?.cleanPrice || '0') || 0;
+          const nonLaborExps = rawExps.filter(e => e.category !== 'Labor');
+          // Build display rows: clean service first, then any extra non-labor expenses
+          const displayExps: (WorkOrderExpense & { _isService?: boolean })[] = [
+            { id: -1, workOrderNumber: wo.number, description: `Cleaning Service — ${wo.propertyName}${wo.instructions ? '\n' + wo.instructions : ''}`, category: 'Service', quantity: '1', unitCost: String(cleanPrice), totalCost: String(cleanPrice), vendor: '', partNumber: '', _isService: true },
+            ...nonLaborExps,
+          ];
+          const exps = displayExps;
+          const total = cleanPrice + nonLaborExps.reduce((s, e) => s + (parseFloat(e.totalCost) || 0), 0);
           const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
           const addrNum = [prop?.address, prop?.street].reduce((found: string | undefined, f) => found || (f || '').match(/\d+/)?.[0], undefined) || wo.number.replace('WO-','');
           const todayMMDDYY = (() => { const n = new Date(); const m = String(n.getMonth()+1).padStart(2,'0'); const d = String(n.getDate()).padStart(2,'0'); const y = String(n.getFullYear()).slice(2); return m+d+y; })();
@@ -3868,23 +3882,14 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {exps.length > 0 ? exps.map((e, i) => (
+                          {exps.map((e, i) => (
                             <tr key={i} style={{ background: i % 2 === 0 ? '#f0f4ff' : '#fff' }}>
                               <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13 }}>{i + 1}</td>
-                              <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13 }}>{e.description}{e.partNumber ? <span style={{ color: '#888', fontSize: 11 }}> ({e.partNumber})</span> : ''}</td>
+                              <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13, whiteSpace: 'pre-wrap' }}>{e.description}{e.partNumber ? <span style={{ color: '#888', fontSize: 11 }}> ({e.partNumber})</span> : ''}</td>
                               <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13 }}>{e.category}</td>
-                              <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13, textAlign: 'right' }}>{e.totalCost ? `$${parseFloat(e.totalCost).toFixed(2)}` : '—'}</td>
+                              <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13, textAlign: 'right' }}>{e.totalCost && parseFloat(e.totalCost) > 0 ? `$${parseFloat(e.totalCost).toFixed(2)}` : '—'}</td>
                             </tr>
-                          )) : (
-                            <>
-                              <tr style={{ background: '#f0f4ff' }}>
-                                <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13 }}>1</td>
-                                <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13, whiteSpace: 'pre-wrap' }} colSpan={2}>{wo.instructions}</td>
-                                <td style={{ padding: '10px 12px', borderBottom: '1px solid #dde', fontSize: 13 }}></td>
-                              </tr>
-                              {[2,3,4,5].map(n => <tr key={n}><td style={{ padding: '10px 12px', borderBottom: '1px solid #eee', color: '#bbb' }}>{n}</td><td style={{ padding: '10px 12px', borderBottom: '1px solid #eee' }} colSpan={2}>&nbsp;</td><td></td></tr>)}
-                            </>
-                          )}
+                          ))}
                         </tbody>
                       </table>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 32 }}>
