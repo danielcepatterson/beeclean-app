@@ -778,6 +778,11 @@ function App() {
   const [newPropRows, setNewPropRows] = React.useState<PropRow[]>([blankPropRow()]);
   const [massSaving, setMassSaving] = React.useState(false);
   const [massSaved, setMassSaved] = React.useState(false);
+  type CleanRow = { propertyName: string; scheduledDate: string; scheduledTime: string; assignedTo: string; cleanPrice: string; instructions: string; };
+  const blankCleanRow = (): CleanRow => ({ propertyName: '', scheduledDate: '', scheduledTime: '', assignedTo: '', cleanPrice: '', instructions: '' });
+  const [massCleanRows, setMassCleanRows] = React.useState<CleanRow[]>([blankCleanRow(), blankCleanRow(), blankCleanRow()]);
+  const [massCleanSaving, setMassCleanSaving] = React.useState(false);
+  const [massCleanSaved, setMassCleanSaved] = React.useState(false);
   const handleVendorFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setVendorForm((prev: VendorForm) => ({ ...prev, [name]: value }));
@@ -4388,6 +4393,7 @@ function App() {
                   {techDashStyle === 'dropdown' && (
                     <>
                       <button onClick={() => setPage('workorder')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#1a3a7a' }}>📋 New Clean</button>
+                      <button onClick={() => setPage('masscreatecleans')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#1a3a7a' }}>📋+ Mass Create Cleans</button>
                       <button onClick={() => setPage('workorderlistdraft')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#1a3a7a' }}>📂 Draft Cleans</button>
                       <button onClick={() => setPage('completedworkorders')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#2a9d2a' }}>✓ Completed Cleans</button>
                       <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
@@ -4515,6 +4521,7 @@ function App() {
 
   const woItems = [
     { label: 'Create a Clean', page: 'workorder' },
+    { label: 'Mass Create Cleans', page: 'masscreatecleans' },
     { label: 'Draft Cleans', page: 'workorderlistdraft' },
     { label: 'Active Cleans', page: 'workorderlist' },
     { label: 'Completed Cleans', page: 'completedworkorders' },
