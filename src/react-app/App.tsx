@@ -509,27 +509,27 @@ function App() {
   };
 
   const reactivateWorkOrder = async (number: string) => {
-    if (!confirm('Reactivate this work order? It will return to Active Work Orders.')) return;
+    if (!confirm('Reactivate this clean? It will return to Active Cleans.')) return;
     await api.updateWorkOrderStatus(number, 'active');
     await loadAllData();
     setPage('workorderlist');
   };
 
   const invoiceWorkOrder = async (number: string) => {
-    if (!confirm('Mark this work order as Invoiced?')) return;
+    if (!confirm('Mark this clean as Invoiced?')) return;
     await api.updateWorkOrderStatus(number, 'invoiced');
     await loadAllData();
   };
 
   const noChargeWorkOrder = async (number: string) => {
-    if (!confirm('Mark this work order as No Charge?')) return;
+    if (!confirm('Mark this clean as No Charge?')) return;
     await api.updateWorkOrderStatus(number, 'nocharge');
     await loadAllData();
   };
 
   const markSentWorkOrder = async (wo: WorkOrder) => {
     if (wo.status === 'nocharge') {
-      if (!confirm('Mark this No Charge work order as sent? It will be automatically marked as Paid.')) return;
+      if (!confirm('Mark this No Charge clean as sent? It will be automatically marked as Paid.')) return;
       await api.updateWorkOrderStatus(wo.number, 'paid');
     } else {
       if (!confirm('Mark this invoice as Sent?')) return;
@@ -545,7 +545,7 @@ function App() {
   };
 
   const deleteWorkOrder = async (number: string) => {
-    if (!confirm('Delete this work order? It will be moved to the Deleted list.')) return;
+    if (!confirm('Delete this clean? It will be moved to the Deleted list.')) return;
     await api.deleteWorkOrder(number);
     await loadAllData();
   };
@@ -1773,13 +1773,13 @@ function App() {
         <h1>Create a Work Order</h1>
         {woSubmitted ? (
           <>
-            <p style={{ color: 'green' }}>Work order submitted!</p>
+            <p style={{ color: 'green' }}>Clean submitted!</p>
             <button onClick={() => { setPage("home"); setWoSubmitted(false); setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '' }); }}>Return to Home</button>
           </>
         ) : (
           <form onSubmit={handleWoFormSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", minWidth: 350 }}>
             <label>
-              Work Order Number
+              Clean Number
               <input name="number" value={nextWoNumber} disabled style={{ background: '#eee' }} />
             </label>
             <label>
@@ -1792,7 +1792,7 @@ function App() {
               </select>
             </label>
             <label>
-              Work Order Title
+              Clean Title
               <input name="title" value={woForm.title} onChange={handleWoFormChange} required />
             </label>
             <label>
@@ -1927,7 +1927,7 @@ function App() {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", padding: "1rem" }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <h1 style={{ margin: 0 }}>Draft Work Orders</h1>
+          <h1 style={{ margin: 0 }}>Draft Cleans</h1>
           {authUser?.userType === 'tech' && (
             <span onClick={() => setTechWOFilter(techWOFilter === 'assigned' ? 'all' : 'assigned')}
               style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 12, cursor: 'pointer',
@@ -1937,7 +1937,7 @@ function App() {
           )}
         </div>
         {draftOrders.length === 0 ? (
-          <p>No draft work orders.</p>
+          <p>No draft cleans.</p>
         ) : (
           <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {draftOrders.map((wo: WorkOrder) => (
@@ -1981,7 +1981,7 @@ function App() {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", padding: "1rem" }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <h1 style={{ margin: 0 }}>Active Work Order List</h1>
+          <h1 style={{ margin: 0 }}>Active Clean List</h1>
           {authUser?.userType === 'tech' && (
             <span onClick={() => setTechWOFilter(techWOFilter === 'assigned' ? 'all' : 'assigned')}
               style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 12, cursor: 'pointer',
@@ -1991,7 +1991,7 @@ function App() {
           )}
         </div>
         {activeOrders.length === 0 ? (
-          <p>No active work orders.</p>
+          <p>No active cleans.</p>
         ) : (
           <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {activeOrders.map((wo: WorkOrder) => (
@@ -2030,7 +2030,7 @@ function App() {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", padding: "1rem" }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <h1 style={{ margin: 0 }}>Completed Work Orders</h1>
+          <h1 style={{ margin: 0 }}>Completed Cleans</h1>
           {authUser?.userType === 'tech' && (
             <span onClick={() => setTechWOFilter(techWOFilter === 'assigned' ? 'all' : 'assigned')}
               style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 12, cursor: 'pointer',
@@ -2040,7 +2040,7 @@ function App() {
           )}
         </div>
         {completedOrders.length === 0 ? (
-          <p>No work orders have been completed yet.</p>
+          <p>No cleans have been completed yet.</p>
         ) : (
           <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {completedOrders.map((wo: WorkOrder) => (
@@ -2086,9 +2086,9 @@ function App() {
     console.log('Rendering closedworkorders page. workOrders:', workOrders, 'closedOrders:', closedOrders);
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <h1>Closed Work Orders</h1>
+        <h1>Closed Cleans</h1>
         {closedOrders.length === 0 ? (
-          <p>No work orders have been closed yet.</p>
+          <p>No cleans have been closed yet.</p>
         ) : (
           <table className="wo-table">
             <thead>
@@ -2173,7 +2173,7 @@ function App() {
         
         {viewHistoryWO && (
           <div style={{ marginTop: 24, background: '#f8f8f8', padding: 16, borderRadius: 8, maxWidth: '90%', width: 350 }}>
-            <h2>Work Order History: {viewHistoryWO.number}</h2>
+            <h2>Clean History: {viewHistoryWO.number}</h2>
             <ul style={{ textAlign: 'left' }}>
               {viewHistoryWO.history.map((entry: WorkOrderHistoryEntry, idx: number) => {
                 const isAssign = entry.status.startsWith('assigned:') || entry.status === 'unassigned';
@@ -2866,7 +2866,7 @@ function App() {
     return (
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-          <h1 style={{ color: '#1a3a7a', margin: 0 }}>🔁 Recurring Work Orders</h1>
+          <h1 style={{ color: '#1a3a7a', margin: 0 }}>🔁 Recurring Cleans</h1>
           <button onClick={() => { setEditingRecurring({} as RecurringItem); setRecurringForm(blankRecurring()); }}
             style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>+ New Recurring WO</button>
         </div>
@@ -2916,7 +2916,7 @@ function App() {
               </label>
             </div>
             <label style={{ ...labelS, display: 'block', marginTop: 14 }}>Instructions
-              <textarea style={{ ...inputS, minHeight: 80, resize: 'vertical' }} value={recurringForm.instructions} onChange={e => setRecurringForm(p => ({ ...p, instructions: e.target.value }))} placeholder="Work order instructions..." />
+              <textarea style={{ ...inputS, minHeight: 80, resize: 'vertical' }} value={recurringForm.instructions} onChange={e => setRecurringForm(p => ({ ...p, instructions: e.target.value }))} placeholder="Clean instructions..." />
             </label>
             <label style={{ ...labelS, display: 'block', marginTop: 14 }}>Notes
               <textarea style={{ ...inputS, minHeight: 60, resize: 'vertical' }} value={recurringForm.notes} onChange={e => setRecurringForm(p => ({ ...p, notes: e.target.value }))} placeholder="Internal notes..." />
@@ -2945,7 +2945,7 @@ function App() {
         </div>
 
         {recurringLoading ? <p style={{ color: '#888' }}>Loading...</p> : displayed.length === 0 ? (
-          <div style={{ background: '#fff', borderRadius: 12, padding: 32, textAlign: 'center', color: '#aaa', boxShadow: '0 2px 8px rgba(26,58,122,0.07)' }}>No {recurringTab} recurring work orders.</div>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 32, textAlign: 'center', color: '#aaa', boxShadow: '0 2px 8px rgba(26,58,122,0.07)' }}>No {recurringTab} recurring cleans.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {displayed.map(r => (
@@ -3152,7 +3152,7 @@ function App() {
     return (
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
         <h1 style={{ color: '#1a3a7a', marginBottom: 4 }}>📈 Revenue Report</h1>
-        <p style={{ color: '#666', marginBottom: 24 }}>Revenue from invoiced, sent, and paid work orders.</p>
+        <p style={{ color: '#666', marginBottom: 24 }}>Revenue from invoiced, sent, and paid cleans.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 28 }}>
           {[
             { label: 'Total Revenue', value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: '#2a9d2a' },
@@ -3199,8 +3199,8 @@ function App() {
     const months = Object.keys(byMonth).sort().reverse().slice(0, 12);
     return (
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
-        <h1 style={{ color: '#1a3a7a', marginBottom: 4 }}>📋 Work Order Report</h1>
-        <p style={{ color: '#666', marginBottom: 24 }}>Breakdown of all work orders by status and schedule.</p>
+        <h1 style={{ color: '#1a3a7a', marginBottom: 4 }}>📋 Clean Report</h1>
+        <p style={{ color: '#666', marginBottom: 24 }}>Breakdown of all cleans by status and schedule.</p>
         <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', boxShadow: '0 2px 8px rgba(26,58,122,0.08)', marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 16px', color: '#1a3a7a' }}>By Status</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
@@ -3250,7 +3250,7 @@ function App() {
     return (
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
         <h1 style={{ color: '#1a3a7a', marginBottom: 4 }}>👷 Tech Productivity</h1>
-        <p style={{ color: '#666', marginBottom: 24 }}>Work order counts by assigned technician.</p>
+        <p style={{ color: '#666', marginBottom: 24 }}>Clean counts by assigned technician.</p>
         <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
           {techs.length === 0 ? <p style={{ color: '#aaa' }}>No data.</p> : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -3290,7 +3290,7 @@ function App() {
     return (
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
         <h1 style={{ color: '#1a3a7a', marginBottom: 4 }}>💰 Expense Summary</h1>
-        <p style={{ color: '#666', marginBottom: 24 }}>Total expenses across all work orders grouped by WO status and month.</p>
+        <p style={{ color: '#666', marginBottom: 24 }}>Total expenses across all cleans grouped by clean status and month.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', boxShadow: '0 2px 8px rgba(26,58,122,0.08)', borderTop: '4px solid #1a3a7a', gridColumn: 'span 3' }}>
             <div style={{ fontSize: 32, fontWeight: 800, color: '#1a3a7a' }}>${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -3393,8 +3393,8 @@ function App() {
               <div style={{ fontSize: 12, fontWeight: 700, color: '#1a3a7a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 }}>Dashboard Style</div>
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                 {([
-                  { key: 'classic' as const, label: 'Classic', icon: '📦', desc: 'New WO, Drafts, Active, and Done buttons always visible in the bottom nav bar.' },
-                  { key: 'dropdown' as const, label: 'Dropdown', icon: '▼', desc: 'New WO, Drafts, and Done move into a dropdown under your name. Only Active WOs remain in the bottom nav.' },
+                  { key: 'classic' as const, label: 'Classic', icon: '📦', desc: 'New Clean, Drafts, Active, and Done buttons always visible in the bottom nav bar.' },
+                  { key: 'dropdown' as const, label: 'Dropdown', icon: '▼', desc: 'New Clean, Drafts, and Done move into a dropdown under your name. Only Active Cleans remain in the bottom nav.' },
                 ]).map(opt => (
                   <div key={opt.key} onClick={() => setTechDashStyle(opt.key)}
                     style={{ flex: '1 1 180px', border: `2px solid ${techDashStyle === opt.key ? '#1a3a7a' : '#d0d8f0'}`, borderRadius: 10, padding: '14px 16px', cursor: 'pointer',
@@ -3414,12 +3414,12 @@ function App() {
           {/* Work Order Filter — tech only */}
           {isTech && (
             <div style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: 22, marginBottom: 22 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#1a3a7a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Work Order Visibility</div>
-              <div style={{ fontSize: 13, color: '#666', marginBottom: 14 }}>Control which work orders appear in your Draft, Active, and Completed lists.</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1a3a7a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Clean Visibility</div>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 14 }}>Control which cleans appear in your Draft, Active, and Completed lists.</div>
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                 {([
-                  { key: 'assigned' as const, label: 'My Work Orders', icon: '👤', desc: 'Only show work orders assigned directly to you.' },
-                  { key: 'all' as const, label: 'All Work Orders', icon: '🌐', desc: 'Show all work orders regardless of assignment.' },
+                  { key: 'assigned' as const, label: 'My Cleans', icon: '👤', desc: 'Only show cleans assigned directly to you.' },
+                  { key: 'all' as const, label: 'All Cleans', icon: '🌐', desc: 'Show all cleans regardless of assignment.' },
                 ]).map(opt => (
                   <div key={opt.key} onClick={() => setTechWOFilter(opt.key)}
                     style={{ flex: '1 1 180px', border: `2px solid ${techWOFilter === opt.key ? '#1a3a7a' : '#d0d8f0'}`, borderRadius: 10, padding: '14px 16px', cursor: 'pointer',
@@ -3547,9 +3547,9 @@ function App() {
     const deletedOrders = workOrders.filter((wo) => wo.status === 'deleted');
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", padding: "1rem" }}>
-        <h1>Deleted Work Orders</h1>
+        <h1>Deleted Cleans</h1>
         {deletedOrders.length === 0 ? (
-          <p>No deleted work orders.</p>
+          <p>No deleted cleans.</p>
         ) : (
           <table className="wo-table">
             <thead>
@@ -4438,7 +4438,7 @@ function App() {
         {/* Active WO cards — scrollable center */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 6px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 4px' }}>
-            <h2 style={{ margin: 0, fontSize: 16, color: '#1a3a7a', fontWeight: 700 }}>Active Work Orders</h2>
+            <h2 style={{ margin: 0, fontSize: 16, color: '#1a3a7a', fontWeight: 700 }}>Active Cleans</h2>
             {authUser.userType === 'tech' && (
               <span onClick={() => setTechWOFilter(techWOFilter === 'assigned' ? 'all' : 'assigned')}
                 style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 10, cursor: 'pointer',
@@ -4450,7 +4450,7 @@ function App() {
           </div>
           {activeOrders.length === 0 && (
             <div style={{ background: '#fff', borderRadius: 12, padding: '28px 20px', textAlign: 'center', color: '#888', boxShadow: '0 2px 6px rgba(26,58,122,0.07)' }}>
-              No active work orders.
+              No active cleans.
             </div>
           )}
           {activeOrders.map(wo => (
@@ -4494,7 +4494,7 @@ function App() {
           {techDashStyle === 'dropdown' && (
             <button onClick={() => setPage('workorderlist')} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 0 8px', background: 'none', border: 'none', cursor: 'pointer', gap: 3 }}>
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="5" width="18" height="16" rx="3" stroke="#1a3a7a" strokeWidth="2"/><line x1="8" y1="10" x2="18" y2="10" stroke="#1a3a7a" strokeWidth="1.8" strokeLinecap="round"/><line x1="8" y1="14" x2="18" y2="14" stroke="#1a3a7a" strokeWidth="1.8" strokeLinecap="round"/><line x1="8" y1="18" x2="14" y2="18" stroke="#1a3a7a" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              <span style={{ fontSize: 10, color: '#555', fontWeight: 600 }}>Active WOs</span>
+              <span style={{ fontSize: 10, color: '#555', fontWeight: 600 }}>Active Cleans</span>
             </button>
           )}
         </div>
@@ -4522,7 +4522,7 @@ function App() {
   ];
 
   const billingDirectItems = [
-    { label: 'Closed Work Orders', page: 'closedworkorders' },
+    { label: 'Closed Cleans', page: 'closedworkorders' },
     { label: 'Invoice List', page: 'invoicelist' },
   ];
   const billingArchiveItems = [
@@ -4531,12 +4531,10 @@ function App() {
   ];
 
   const woItems = [
-    { label: 'Create an Estimate', page: 'createestimate' },
-    { label: 'Estimate List', page: 'estimatelist' },
-    { label: 'Create a Work Order', page: 'workorder' },
-    { label: 'Draft Work Orders', page: 'workorderlistdraft' },
-    { label: 'Active Work Orders', page: 'workorderlist' },
-    { label: 'Completed Work Orders', page: 'completedworkorders' },
+    { label: 'Create a Clean', page: 'workorder' },
+    { label: 'Draft Cleans', page: 'workorderlistdraft' },
+    { label: 'Active Cleans', page: 'workorderlist' },
+    { label: 'Completed Cleans', page: 'completedworkorders' },
   ];
 
   const allTimeWOs = workOrders.length;
@@ -4616,7 +4614,7 @@ function App() {
           {/* ── Work Orders ── */}
           <div style={{ position: 'relative' }}>
             <button style={menuBtnStyle(homeMenu === 'wo')} onClick={e => { e.stopPropagation(); setHomeMenu(homeMenu === 'wo' ? null : 'wo'); setHomeSubMenu(null); }}>
-              Work Orders <span style={{ fontSize: 10, opacity: 0.7 }}>{homeMenu === 'wo' ? '▲' : '▼'}</span>
+              Cleans <span style={{ fontSize: 10, opacity: 0.7 }}>{homeMenu === 'wo' ? '▲' : '▼'}</span>
             </button>
             {homeMenu === 'wo' && (
               <div style={dropdownStyle} onClick={e => e.stopPropagation()}>
@@ -4701,7 +4699,7 @@ function App() {
             {homeMenu === 'scheduled' && (
               <div style={dropdownStyle} onClick={e => e.stopPropagation()}>
                 {[
-                  { label: 'Recurring Work Orders', page: 'recurringworkorders' },
+                  { label: 'Recurring Cleans', page: 'recurringworkorders' },
                   { label: 'Internal Services', page: 'internalservices' },
                 ].map(item => (
                   <button key={item.page} style={dropItemStyle}
@@ -4723,7 +4721,7 @@ function App() {
               <div style={dropdownStyle} onClick={e => e.stopPropagation()}>
                 {[
                   { label: 'Revenue Report', page: 'reportrevenue' },
-                  { label: 'Work Order Report', page: 'reportworkorders' },
+                  { label: 'Clean Report', page: 'reportworkorders' },
                   { label: 'Tech Productivity', page: 'reporttechproductivity' },
                   { label: 'Expense Summary', page: 'reportexpenses' },
                 ].map(item => (
@@ -4873,7 +4871,7 @@ function App() {
           <div style={{ borderBottom: '1px solid #e8edf8' }}>
             <button onClick={() => setMobileOpenSection(mobileOpenSection === 'wo' ? null : 'wo')}
               style={{ width: '100%', background: 'none', border: 'none', padding: '14px 20px', textAlign: 'left', fontSize: 16, fontWeight: 700, color: '#1a3a7a', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              Work Orders <span style={{ opacity: 0.5 }}>{mobileOpenSection === 'wo' ? '▲' : '▼'}</span>
+              Cleans <span style={{ opacity: 0.5 }}>{mobileOpenSection === 'wo' ? '▲' : '▼'}</span>
             </button>
             {mobileOpenSection === 'wo' && (
               <div style={{ background: '#f8f9ff', paddingBottom: 8 }}>
@@ -4940,7 +4938,7 @@ function App() {
             </button>
             {mobileOpenSection === 'recurring' && (
               <div style={{ background: '#f8f9ff', paddingBottom: 8 }}>
-                {[{ label: 'Recurring Work Orders', page: 'recurringworkorders' }, { label: 'Internal Services', page: 'internalservices' }].map(item => (
+                {[{ label: 'Recurring Cleans', page: 'recurringworkorders' }, { label: 'Internal Services', page: 'internalservices' }].map(item => (
                   <button key={item.page} onClick={() => { setPage(item.page); setMobileMenuOpen(false); setMobileOpenSection(null); }}
                     style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '11px 36px', fontSize: 15, color: '#1a3a7a', cursor: 'pointer', fontWeight: 500 }}>
                     {item.label}
@@ -4959,7 +4957,7 @@ function App() {
               <div style={{ background: '#f8f9ff', paddingBottom: 8 }}>
                 {[
                   { label: 'Revenue Report', page: 'reportrevenue' },
-                  { label: 'Work Order Report', page: 'reportworkorders' },
+                  { label: 'Clean Report', page: 'reportworkorders' },
                   { label: 'Tech Productivity', page: 'reporttechproductivity' },
                   { label: 'Expense Summary', page: 'reportexpenses' },
                 ].map(item => (
@@ -5058,7 +5056,7 @@ function App() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {([
-                { label: kpiRange === 'alltime' ? 'All-Time WOs' : `WOs (${kpiRange})`, value: kpiRange === 'alltime' ? allTimeWOs : rangedTotal, color: '#1a3a7a', page: null },
+                { label: kpiRange === 'alltime' ? 'All-Time Cleans' : `Cleans (${kpiRange})`, value: kpiRange === 'alltime' ? allTimeWOs : rangedTotal, color: '#1a3a7a', page: null },
                 { label: kpiRange === 'alltime' ? 'Draft' : `Drafts (${kpiRange})`, value: kpiRange === 'alltime' ? draftWOs : rangedDraft, color: '#9b59b6', page: 'workorderlistdraft' },
                 { label: 'Active', value: activeWOs, color: '#0099FF', page: 'workorderlist' },
                 { label: 'Completed', value: completedWOs, color: '#2a9d2a', page: 'completedworkorders' },
