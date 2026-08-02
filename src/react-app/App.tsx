@@ -480,6 +480,9 @@ function App() {
     }
   }, [page, authUser]);
 
+  // Sync mass-edit rows when properties reload
+  React.useEffect(() => { setMassRows(properties.map((p: PropertyForm) => ({ ...p }))); }, [properties]);
+
   // ─── Load notes when viewing WO detail ───────────────────
   React.useEffect(() => {
     if (page === 'workorderdetail' && viewingWO) {
@@ -769,6 +772,12 @@ function App() {
   const [editingProperty, setEditingProperty] = React.useState<PropertyForm | null>(null);
   const [editPropertyForm, setEditPropertyForm] = React.useState<PropertyForm>({ propertyName: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '', rentalAgency: '', cleanPrice: '' });
   const [editPropertySaving, setEditPropertySaving] = React.useState(false);
+  type PropRow = PropertyForm & { _new?: boolean; _dirty?: boolean };
+  const blankPropRow = (): PropRow => ({ propertyName: '', rentalAgency: '', cleanPrice: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '', _new: true, _dirty: true });
+  const [massRows, setMassRows] = React.useState<PropRow[]>([]);
+  const [newPropRows, setNewPropRows] = React.useState<PropRow[]>([blankPropRow()]);
+  const [massSaving, setMassSaving] = React.useState(false);
+  const [massSaved, setMassSaved] = React.useState(false);
   const handleVendorFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setVendorForm((prev: VendorForm) => ({ ...prev, [name]: value }));
@@ -1866,16 +1875,6 @@ function App() {
     );
   }
   if (page === "propertylist") {
-    type PropRow = PropertyForm & { _new?: boolean; _dirty?: boolean };
-    const blankRow = (): PropRow => ({ propertyName: '', rentalAgency: '', cleanPrice: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '', _new: true, _dirty: true });
-    const [massRows, setMassRows] = React.useState<PropRow[]>(() => properties.map(p => ({ ...p })));
-    const [newRows, setNewRows] = React.useState<PropRow[]>([blankRow()]);
-    const [massSaving, setMassSaving] = React.useState(false);
-    const [massSaved, setMassSaved] = React.useState(false);
-
-    // Sync existing rows when properties reload
-    React.useEffect(() => { setMassRows(properties.map((p: PropertyForm) => ({ ...p }))); }, [properties]);
-
     const cellStyle: React.CSSProperties = { border: '1px solid #ccc', padding: 0 };
     const inputStyle: React.CSSProperties = { width: '100%', border: 'none', padding: '6px 7px', fontSize: 13, background: 'transparent', boxSizing: 'border-box', outline: 'none' };
     const thStyle: React.CSSProperties = { border: '1px solid #b0b8cc', padding: '8px 9px', background: '#1a3a7a', color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' };
@@ -1884,28 +1883,26 @@ function App() {
       setMassRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: val, _dirty: true } : r));
     };
     const updateNew = (idx: number, field: keyof PropertyForm, val: string) => {
-      setNewRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+      setNewPropRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: val } : r));
     };
-    const addNewRow = () => setNewRows(rows => [...rows, blankRow()]);
-    const removeNewRow = (idx: number) => setNewRows(rows => rows.filter((_, i) => i !== idx));
+    const addNewRow = () => setNewPropRows(rows => [...rows, blankPropRow()]);
+    const removeNewRow = (idx: number) => setNewPropRows(rows => rows.filter((_, i) => i !== idx));
 
     const saveAll = async () => {
       setMassSaving(true);
       setMassSaved(false);
       try {
-        // Save dirty existing rows
         for (const row of massRows) {
           if (row._dirty && row.id) {
             await api.updateProperty(row.id, row);
           }
         }
-        // Create filled new rows
-        const toCreate = newRows.filter(r => r.propertyName.trim());
+        const toCreate = newPropRows.filter(r => r.propertyName.trim());
         for (const row of toCreate) {
           await api.createProperty(row);
         }
         await loadAllData();
-        setNewRows([blankRow()]);
+        setNewPropRows([blankPropRow()]);
         setMassSaved(true);
         setTimeout(() => setMassSaved(false), 3000);
       } catch (err) {
@@ -1972,7 +1969,7 @@ function App() {
                 </tr>
               ))}
               {/* New rows */}
-              {newRows.map((row, idx) => (
+              {newPropRows.map((row, idx) => (
                 <tr key={`new-${idx}`} style={{ background: '#edfff2' }}>
                   {cols.map(c => (
                     <td key={c.key} style={{ ...cellStyle, background: '#edfff2' }}>
