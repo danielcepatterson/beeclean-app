@@ -64,6 +64,8 @@ async function runMigrations(db: D1Database) {
   try { await db.prepare(`ALTER TABLE work_orders ADD COLUMN created_by TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
   try { await db.prepare(`ALTER TABLE work_orders ADD COLUMN clean_price TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
   try { await db.prepare(`ALTER TABLE work_orders ADD COLUMN clean_cost TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
+  try { await db.prepare(`ALTER TABLE properties ADD COLUMN rental_agency TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
+  try { await db.prepare(`ALTER TABLE properties ADD COLUMN clean_price TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
   try { await db.prepare(`ALTER TABLE work_order_history ADD COLUMN changed_by TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
   await db.prepare(`CREATE TABLE IF NOT EXISTS recurring_items (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, property_name TEXT NOT NULL DEFAULT '', instructions TEXT NOT NULL DEFAULT '', frequency TEXT NOT NULL DEFAULT 'monthly', day_of_week TEXT NOT NULL DEFAULT '', day_of_month INTEGER NOT NULL DEFAULT 1, assigned_to TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, last_generated TEXT NOT NULL DEFAULT '', next_due TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS internal_services (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'general', description TEXT NOT NULL DEFAULT '', frequency TEXT NOT NULL DEFAULT 'monthly', day_of_week TEXT NOT NULL DEFAULT '', day_of_month INTEGER NOT NULL DEFAULT 1, assigned_to TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, last_completed TEXT NOT NULL DEFAULT '', next_due TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`).run();
@@ -400,6 +402,8 @@ app.get("/api/properties", async (c) => {
       zip: p.zip,
       ownerName: p.owner_name,
       ownerPhone: p.owner_phone,
+      rentalAgency: p.rental_agency || '',
+      cleanPrice: p.clean_price || ''
     }))
   );
 });
@@ -408,11 +412,11 @@ app.post("/api/properties", async (c) => {
   const user = await getUser(c);
   if (!user) return unauthorized();
   const body = await c.req.json();
-  const { propertyName, address, street, city, state, zip, ownerName, ownerPhone } = body;
+  const { propertyName, address, street, city, state, zip, ownerName, ownerPhone, rentalAgency, cleanPrice } = body;
   await c.env.DB.prepare(
-    "INSERT INTO properties (property_name, address, street, city, state, zip, owner_name, owner_phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO properties (property_name, address, street, city, state, zip, owner_name, owner_phone, rental_agency, clean_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   )
-    .bind(propertyName, address, street, city, state, zip, ownerName, ownerPhone)
+    .bind(propertyName, address, street, city, state, zip, ownerName, ownerPhone, rentalAgency || '', cleanPrice || '')
     .run();
   await writeLog(c.env.DB, user.username, 'create_property', 'property', propertyName, `Created property`);
   return c.json({ ok: true });
@@ -431,10 +435,10 @@ app.put("/api/properties/:id", async (c) => {
   const user = await getUser(c);
   if (!user) return unauthorized();
   const id = c.req.param("id");
-  const { propertyName, address, street, city, state, zip, ownerName, ownerPhone } = await c.req.json();
+  const { propertyName, address, street, city, state, zip, ownerName, ownerPhone, rentalAgency, cleanPrice } = await c.req.json();
   await c.env.DB.prepare(
-    "UPDATE properties SET property_name=?, address=?, street=?, city=?, state=?, zip=?, owner_name=?, owner_phone=? WHERE id=?"
-  ).bind(propertyName, address, street, city, state, zip, ownerName, ownerPhone, id).run();
+    "UPDATE properties SET property_name=?, address=?, street=?, city=?, state=?, zip=?, owner_name=?, owner_phone=?, rental_agency=?, clean_price=? WHERE id=?"
+  ).bind(propertyName, address, street, city, state, zip, ownerName, ownerPhone, rentalAgency || '', cleanPrice || '', id).run();
   await writeLog(c.env.DB, user.username, 'update_property', 'property', propertyName, `Updated property id=${id}`);
   return c.json({ ok: true });
 });

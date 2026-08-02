@@ -13,6 +13,8 @@ type PropertyForm = {
   zip: string;
   ownerName: string;
   ownerPhone: string;
+  rentalAgency?: string;
+  cleanPrice?: string;
 };
 type WorkOrderStatus = 'draft' | 'active' | 'completed' | 'closed' | 'invoiced' | 'sent' | 'nocharge' | 'deleted' | 'paid';
 
@@ -645,7 +647,7 @@ function App() {
     await api.createProperty(form);
     await loadAllData();
     setSubmitted(true);
-    setForm({ propertyName: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '' });
+    setForm({ propertyName: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '', rentalAgency: '', cleanPrice: '' });
   };
   const handleDeleteProperty = async (prop: PropertyForm) => {
     if (prop.id != null) {
@@ -655,7 +657,7 @@ function App() {
   };
 
   const [editingProperty, setEditingProperty] = React.useState<PropertyForm | null>(null);
-  const [editPropertyForm, setEditPropertyForm] = React.useState<PropertyForm>({ propertyName: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '' });
+  const [editPropertyForm, setEditPropertyForm] = React.useState<PropertyForm>({ propertyName: '', address: '', street: '', city: '', state: '', zip: '', ownerName: '', ownerPhone: '', rentalAgency: '', cleanPrice: '' });
   const [editPropertySaving, setEditPropertySaving] = React.useState(false);
   const handleVendorFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -1054,150 +1056,106 @@ function App() {
             )}
           </div>
 
-          {/* Expenses */}
-          <div style={{ background: '#fff', border: '1px solid #b0c0e0', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h2 style={{ margin: 0, fontSize: 16, color: '#333' }}>Parts &amp; Expenses</h2>
-              <button onClick={() => setShowViewExpenseForm(v => !v)} style={{ background: showViewExpenseForm ? '#888' : '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                {showViewExpenseForm ? '✕ Cancel' : '+ Add Expense'}
-              </button>
-            </div>
-            {showViewExpenseForm && (
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  await api.createWorkOrderExpense(viewingWO.number, { ...expenseForm, category: 'Part' });
-                  const expenses = await api.fetchWorkOrderExpenses(viewingWO.number);
-                  setViewWOExpenses(expenses);
-                  setExpenseForm({ description: '', category: 'Part', quantity: '1', unitCost: '', totalCost: '', vendor: '', partNumber: '' });
-                  setShowViewExpenseForm(false);
-                } catch { alert('Failed to add expense.'); }
-              }} style={{ background: '#f0f4ff', border: '1px solid #c0d0f0', borderRadius: 8, padding: 16, marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <label style={{ fontWeight: 600, fontSize: 13, gridColumn: '1/-1' }}>
-                  Description *
-                  <input name="description" value={expenseForm.description} onChange={handleExpenseFormChange} required placeholder="e.g. 3/4 PVC coupling" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
-                </label>
-                <label style={{ fontWeight: 600, fontSize: 13 }}>
-                  Qty
-                  <input name="quantity" type="number" min="0" step="any" value={expenseForm.quantity} onChange={handleExpenseFormChange} style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
-                </label>
-                <label style={{ fontWeight: 600, fontSize: 13 }}>
-                  Unit Cost ($)
-                  <input name="unitCost" type="number" min="0" step="0.01" value={expenseForm.unitCost} onChange={handleExpenseFormChange} placeholder="0.00" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
-                </label>
-                <label style={{ fontWeight: 600, fontSize: 13, gridColumn: '1/-1' }}>
-                  Total Cost ($)
-                  <input name="totalCost" type="number" min="0" step="0.01" value={expenseForm.totalCost} onChange={handleExpenseFormChange} placeholder="Auto-calculated" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
-                </label>
-                <button type="submit" style={{ gridColumn: '1/-1', background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>✓ Save Expense</button>
-              </form>
-            )}
-            {viewWOLoading && <p style={{ color: '#888' }}>Loading...</p>}
-            {!viewWOLoading && viewWOExpenses.filter(e => e.category !== 'Labor').length === 0 && <p style={{ color: '#888' }}>No expenses recorded.</p>}
-            {viewWOExpenses.filter(e => e.category !== 'Labor').length > 0 && (
-              <>
-                <table className="wo-table" style={{ background: '#fff' }}>
-                  <thead>
-                    <tr>
-                      <th>Description</th>
-                      <th>Qty</th>
-                      <th>Unit $</th>
-                      <th>Total $</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viewWOExpenses.filter(e => e.category !== 'Labor').map((exp, i) => (
-                      <tr key={exp.id} style={{ background: i % 2 === 0 ? '#f0f4ff' : '#fff' }}>
-                        <td data-label="Description" style={{ color: '#111', fontWeight: 600 }}>{exp.description}</td>
-                        <td data-label="Qty" style={{ color: '#111' }}>{exp.quantity}</td>
-                        <td data-label="Unit $" style={{ color: '#111' }}>{exp.unitCost ? `$${exp.unitCost}` : '—'}</td>
-                        <td data-label="Total $" style={{ color: '#0a6e0a', fontWeight: 700 }}>{exp.totalCost ? `$${exp.totalCost}` : '—'}</td>
-                        <td><button onClick={async () => { if (!confirm('Delete this expense?')) return; await api.deleteWorkOrderExpense(exp.id); const expenses = await api.fetchWorkOrderExpenses(viewingWO.number); setViewWOExpenses(expenses); }} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>🗑</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p style={{ textAlign: 'right', fontWeight: 700, fontSize: 16, color: '#0a6e0a', marginTop: 8 }}>
-                  Total: ${viewWOExpenses.filter(e => e.category !== 'Labor').reduce((sum, e) => sum + (parseFloat(e.totalCost) || 0), 0).toFixed(2)}
-                </p>
-              </>
-            )}
-          </div>
+          {/* Labor — Timer */}
+          {(() => {
+            const timerKey = `cleanTimer_${viewingWO.number}`;
+            const saved = (() => { try { return JSON.parse(localStorage.getItem(timerKey) || 'null'); } catch { return null; } })();
+            const [timerState, setTimerState] = React.useState<{ running: boolean; startEpoch: number | null; elapsed: number }>(
+              saved || { running: false, startEpoch: null, elapsed: 0 }
+            );
+            const [display, setDisplay] = React.useState(timerState.elapsed);
 
-          {/* Labor */}
-          <div style={{ background: '#fff', border: '1px solid #b0c0e0', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h2 style={{ margin: 0, fontSize: 16, color: '#333' }}>Labor</h2>
-              <button onClick={() => setShowLaborForm(v => !v)} style={{ background: showLaborForm ? '#888' : '#ff9900', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                {showLaborForm ? '✕ Cancel' : '+ Add Labor'}
-              </button>
-            </div>
-            {showLaborForm && (
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  const [hStr, mStr] = laborTime.split(':');
-                  const totalHours = parseInt(hStr) + parseInt(mStr) / 60;
-                  const laborRate = 55.00;
-                  const laborTotal = (totalHours * laborRate).toFixed(2);
-                  await api.createWorkOrderExpense(viewingWO.number, {
-                    description: laborTime,
-                    category: 'Labor',
-                    quantity: String(totalHours),
-                    unitCost: String(laborRate),
-                    totalCost: laborTotal,
-                    vendor: '',
-                    partNumber: '',
-                  });
-                  const expenses = await api.fetchWorkOrderExpenses(viewingWO.number);
-                  setViewWOExpenses(expenses);
-                  setLaborTime('1:00');
-                  setShowLaborForm(false);
-                } catch { alert('Failed to add labor.'); }
-              }} style={{ background: '#fff8ee', border: '1px solid #f0d080', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                <label style={{ fontWeight: 600, fontSize: 13, display: 'block' }}>
-                  Time
-                  <select value={laborTime} onChange={e => setLaborTime(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: '8px 10px', border: '1px solid #aaa', borderRadius: 6, fontSize: 14 }}>
-                    {Array.from({ length: 48 }, (_, i) => {
-                      const totalMins = (i + 1) * 15;
-                      const h = Math.floor(totalMins / 60);
-                      const m = totalMins % 60;
-                      const label = h > 0 ? `${h}h ${m > 0 ? m + 'm' : ''}`.trim() : `${m}m`;
-                      const value = h > 0 ? `${h}:${m.toString().padStart(2, '0')}` : `0:${m.toString().padStart(2, '0')}`;
-                      return <option key={value} value={value}>{label}</option>;
-                    })}
-                  </select>
-                </label>
-                <button type="submit" style={{ marginTop: 14, width: '100%', background: '#ff9900', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>✓ Save Labor</button>
-              </form>
-            )}
-            {viewWOExpenses.filter(e => e.category === 'Labor').length === 0 && !showLaborForm && (
-              <p style={{ color: '#888' }}>No labor recorded.</p>
-            )}
-            {viewWOExpenses.filter(e => e.category === 'Labor').length > 0 && (
-              <table className="wo-table" style={{ background: '#fff' }}>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Rate</th>
-                    <th>Total</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {viewWOExpenses.filter(e => e.category === 'Labor').map((exp, i) => (
-                    <tr key={exp.id} style={{ background: i % 2 === 0 ? '#fff8ee' : '#fff' }}>
-                      <td data-label="Time" style={{ fontWeight: 600, color: '#b35c00' }}>{exp.description}</td>
-                      <td data-label="Rate" style={{ color: '#555' }}>{exp.unitCost ? `$${exp.unitCost}/hr` : '—'}</td>
-                      <td data-label="Total" style={{ fontWeight: 700, color: '#0a6e0a' }}>{exp.totalCost ? `$${exp.totalCost}` : '—'}</td>
-                      <td><button onClick={async () => { if (!confirm('Delete this labor entry?')) return; await api.deleteWorkOrderExpense(exp.id); const expenses = await api.fetchWorkOrderExpenses(viewingWO.number); setViewWOExpenses(expenses); }} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>🗑</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+            React.useEffect(() => {
+              if (!timerState.running) { setDisplay(timerState.elapsed); return; }
+              const id = setInterval(() => {
+                const now = Date.now();
+                setDisplay(timerState.elapsed + Math.floor((now - (timerState.startEpoch || now)) / 1000));
+              }, 1000);
+              return () => clearInterval(id);
+            }, [timerState]);
+
+            const persist = (s: typeof timerState) => { localStorage.setItem(timerKey, JSON.stringify(s)); setTimerState(s); };
+
+            const fmtTime = (secs: number) => {
+              const h = Math.floor(secs / 3600);
+              const m = Math.floor((secs % 3600) / 60);
+              const s = secs % 60;
+              return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            };
+
+            const currentElapsed = timerState.running
+              ? timerState.elapsed + Math.floor((Date.now() - (timerState.startEpoch || Date.now())) / 1000)
+              : timerState.elapsed;
+
+            return (
+              <div style={{ background: '#fff', border: '1px solid #b0c0e0', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
+                <h2 style={{ margin: '0 0 16px', fontSize: 16, color: '#333' }}>Labor Timer</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                  <div style={{ fontSize: 52, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: timerState.running ? '#2a9d2a' : '#1a3a7a', letterSpacing: 2 }}>
+                    {fmtTime(display)}
+                  </div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {!timerState.running ? (
+                      <button onClick={() => persist({ running: true, startEpoch: Date.now(), elapsed: timerState.elapsed })}
+                        style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
+                        ▶ {timerState.elapsed > 0 ? 'Resume' : 'Start'}
+                      </button>
+                    ) : (
+                      <button onClick={() => {
+                        const elapsed = timerState.elapsed + Math.floor((Date.now() - (timerState.startEpoch || Date.now())) / 1000);
+                        persist({ running: false, startEpoch: null, elapsed });
+                      }} style={{ background: '#ff9900', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
+                        ⏸ Pause
+                      </button>
+                    )}
+                    <button onClick={async () => {
+                      if (currentElapsed < 60) { alert('Timer must run for at least 1 minute.'); return; }
+                      if (!confirm(`Log ${fmtTime(currentElapsed)} of labor for this clean?`)) return;
+                      const hours = currentElapsed / 3600;
+                      await api.createWorkOrderExpense(viewingWO.number, {
+                        description: fmtTime(currentElapsed),
+                        category: 'Labor',
+                        quantity: String(hours.toFixed(4)),
+                        unitCost: '0',
+                        totalCost: '0',
+                        vendor: '',
+                        partNumber: '',
+                      });
+                      persist({ running: false, startEpoch: null, elapsed: 0 });
+                      setDisplay(0);
+                      const expenses = await api.fetchWorkOrderExpenses(viewingWO.number);
+                      setViewWOExpenses(expenses);
+                    }} disabled={currentElapsed < 60}
+                      style={{ background: currentElapsed >= 60 ? '#1a3a7a' : '#ccc', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: 16, cursor: currentElapsed >= 60 ? 'pointer' : 'default' }}>
+                      ✓ End &amp; Log
+                    </button>
+                    {timerState.elapsed > 0 && !timerState.running && (
+                      <button onClick={() => { if (!confirm('Reset timer?')) return; persist({ running: false, startEpoch: null, elapsed: 0 }); setDisplay(0); }}
+                        style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+                        ✕ Reset
+                      </button>
+                    )}
+                  </div>
+                  {viewWOExpenses.filter(e => e.category === 'Labor').length > 0 && (
+                    <div style={{ width: '100%' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#1a3a7a', marginBottom: 8 }}>Logged Sessions</div>
+                      <table className="wo-table" style={{ background: '#fff' }}>
+                        <thead><tr><th>Duration</th><th></th></tr></thead>
+                        <tbody>
+                          {viewWOExpenses.filter(e => e.category === 'Labor').map((exp, i) => (
+                            <tr key={exp.id} style={{ background: i % 2 === 0 ? '#fff8ee' : '#fff' }}>
+                              <td style={{ fontWeight: 600, color: '#b35c00' }}>{exp.description}</td>
+                              <td><button onClick={async () => { if (!confirm('Delete this labor entry?')) return; await api.deleteWorkOrderExpense(exp.id); const expenses = await api.fetchWorkOrderExpenses(viewingWO.number); setViewWOExpenses(expenses); }} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>🗑</button></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Photos */}
           <div style={{ background: '#fff', border: '1px solid #b0c0e0', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
@@ -1735,8 +1693,12 @@ function App() {
         ) : (
           <form onSubmit={handleFormSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", minWidth: 300 }}>
             <label>
-              Property Name
-              <input name="propertyName" value={form.propertyName} onChange={handleFormChange} required />
+              Rental Agency — Property Name
+              <input name="propertyName" value={form.propertyName} onChange={handleFormChange} required placeholder="e.g. VRBO — Ocean Drive 101" />
+            </label>
+            <label>
+              Rental Agency
+              <input name="rentalAgency" value={form.rentalAgency || ''} onChange={handleFormChange} placeholder="e.g. VRBO, Airbnb, Direct" />
             </label>
             <label>
               Address
@@ -1766,6 +1728,10 @@ function App() {
               Owner Phone
               <input name="ownerPhone" value={form.ownerPhone} onChange={handleFormChange} required />
             </label>
+            <label>
+              Default Clean Price ($)
+              <input name="cleanPrice" type="number" min="0" step="0.01" value={form.cleanPrice || ''} onChange={handleFormChange} placeholder="0.00" />
+            </label>
             <button type="submit">Submit</button>
             <button type="button" onClick={() => setPage("home")}>Return to Home</button>
           </form>
@@ -1790,7 +1756,13 @@ function App() {
             </label>
             <label>
               Property
-              <select name="propertyName" value={woForm.propertyName} onChange={handleWoFormChange} required>
+              <select name="propertyName" value={woForm.propertyName} onChange={e => {
+                const propName = e.target.value;
+                const prop = properties.find((p: PropertyForm) => p.propertyName === propName);
+                const price = prop?.cleanPrice || '';
+                const cost = price ? (parseFloat(price) * 0.7).toFixed(2) : '';
+                setWoForm(prev => ({ ...prev, propertyName: propName, title: propName, cleanPrice: price, cleanCost: cost }));
+              }} required>
                 <option value="" disabled>Select a property</option>
                 {properties.map((prop: PropertyForm, idx: number) => (
                   <option key={idx} value={prop.propertyName}>{prop.propertyName}</option>
@@ -1798,12 +1770,8 @@ function App() {
               </select>
             </label>
             <label>
-              Clean Title
-              <input name="title" value={woForm.title} onChange={handleWoFormChange} required />
-            </label>
-            <label>
-              Instructions
-              <textarea name="instructions" value={woForm.instructions} onChange={handleWoFormChange} required rows={3} />
+              Instructions <span style={{ fontSize: 11, color: '#888', fontWeight: 400 }}>(optional)</span>
+              <textarea name="instructions" value={woForm.instructions} onChange={handleWoFormChange} rows={3} />
             </label>
             <label>
               Scheduled Time
@@ -2121,9 +2089,8 @@ function App() {
   // Closed Work Orders
   if (page === "closedworkorders") {
     const closedOrders = workOrders.filter((wo) => wo.status === 'closed');
-    console.log('Rendering closedworkorders page. workOrders:', workOrders, 'closedOrders:', closedOrders);
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", padding: "1rem" }}>
         <h1>Closed Cleans</h1>
         {closedOrders.length === 0 ? (
           <p>No cleans have been closed yet.</p>
@@ -2131,192 +2098,35 @@ function App() {
           <table className="wo-table">
             <thead>
               <tr>
-                <th>WO Number</th>
+                <th>Clean #</th>
                 <th>Property</th>
-                <th>Title</th>
-                <th>Instructions</th>
-                <th>Scheduled Date</th>
-                <th>Scheduled Time</th>
-                <th>Photos</th>
-                <th>History</th>
-                <th>Reactivate</th>
-                <th>Process</th>
+                <th>Date</th>
                 <th>View</th>
+                <th>Reactivate</th>
+                <th>Approve to Invoice</th>
               </tr>
             </thead>
             <tbody>
               {closedOrders.map((wo: WorkOrder, idx: number) => (
                 <tr key={idx}>
-                  <td data-label="WO #">{wo.number}</td>
+                  <td data-label="Clean #">{wo.number}</td>
                   <td data-label="Property">{wo.propertyName}</td>
-                  <td data-label="Title">{wo.title}</td>
-                  <td data-label="Instructions">{wo.instructions}</td>
-                  <td data-label="Date">{wo.scheduledDate}</td>
-                  <td data-label="Time">{wo.scheduledTime}</td>
-                  <td>
-                    <button onClick={() => loadPhotosForWorkOrder(wo)}>📷 Photos</button>
-                  </td>
-                  <td>
-                    <button onClick={() => setViewHistoryWO(wo)}>View History</button>
-                  </td>
-                  <td>
-                    <button style={{ background: '#ff9900', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer' }} onClick={() => reactivateWorkOrder(wo.number)}>↺ Reactivate</button>
-                  </td>
-                  <td style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    <button style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }} onClick={() => invoiceWorkOrder(wo.number)}>🧾 Invoice</button>
-                    <button style={{ background: '#888', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }} onClick={() => noChargeWorkOrder(wo.number)}>✓ No Charge</button>
-                    {authUser.userType === 'admin' && (
-                      <button style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }} onClick={() => deleteWorkOrder(wo.number)}>🗑 Delete</button>
-                    )}
-                  </td>
+                  <td data-label="Date">{wo.scheduledDate || '—'}</td>
                   <td>
                     <button onClick={() => openWODetail(wo, 'closedworkorders')}>🔍 View</button>
+                  </td>
+                  <td>
+                    <button style={{ background: '#ff9900', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', cursor: 'pointer', fontWeight: 600 }} onClick={() => reactivateWorkOrder(wo.number)}>↺ Reactivate</button>
+                  </td>
+                  <td>
+                    <button style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 13 }} onClick={() => invoiceWorkOrder(wo.number)}>✓ Approve to Invoice</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-        <button onClick={() => setPage("home")}>Return to Home</button>
-        
-        {/* Photo Modal */}
-        {selectedWOForPhotos && (
-          <div className="photo-modal">
-            <div className="photo-modal-content">
-              <h2>Photos for {selectedWOForPhotos.number}</h2>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, selectedWOForPhotos.number)} />
-                <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, selectedWOForPhotos.number)} />
-                <button onClick={() => fileInputRef.current?.click()} disabled={photoUploading}>📁 Upload from Files</button>
-                <button onClick={() => cameraInputRef.current?.click()} disabled={photoUploading}>📷 Take Photo</button>
-              </div>
-              {photoLoading && <p>Loading photos...</p>}
-              {photoUploading && <p>Uploading...</p>}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12 }}>
-                {woPhotos.map((photo) => (
-                  <div key={photo.id} style={{ position: 'relative', border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
-                    <img src={photo.data} alt={photo.filename} style={{ width: '100%', height: 100, objectFit: 'cover' }} />
-                    <div style={{ padding: 4, fontSize: 11, background: '#f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 60 }}>{photo.filename}</span>
-                      <button onClick={() => handleDeletePhoto(photo.id)} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontSize: 11 }}>✕</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {woPhotos.length === 0 && !photoLoading && <p style={{ color: '#888' }}>No photos yet.</p>}
-              <button style={{ marginTop: 16 }} onClick={closePhotoModal}>Close</button>
-            </div>
-          </div>
-        )}
-        
-        {viewHistoryWO && (
-          <div style={{ marginTop: 24, background: '#f8f8f8', padding: 16, borderRadius: 8, maxWidth: '90%', width: 350 }}>
-            <h2>Clean History: {viewHistoryWO.number}</h2>
-            <ul style={{ textAlign: 'left' }}>
-              {viewHistoryWO.history.map((entry: WorkOrderHistoryEntry, idx: number) => {
-                const isAssign = entry.status.startsWith('assigned:') || entry.status === 'unassigned';
-                const label = isAssign ? (entry.status === 'unassigned' ? 'Unassigned' : `Assigned → ${entry.status.replace('assigned:', '')}`) : entry.status;
-                return (
-                  <li key={idx} style={{ marginBottom: 4 }}>
-                    <strong>{label}</strong> at {new Date(entry.timestamp).toLocaleString()}{entry.changedBy ? ` — 👤 ${entry.changedBy}` : ''}
-                  </li>
-                );
-              })}
-            </ul>
-            <button onClick={() => setViewHistoryWO(null)}>Close</button>
-          </div>
-        )}
-
-        {/* Expense Modal */}
-        {selectedWOForExpenses && (
-          <div className="photo-modal">
-            <div className="photo-modal-content" style={{ maxWidth: 680 }}>
-              <h2>Parts &amp; Expenses — {selectedWOForExpenses.number}</h2>
-              <form onSubmit={handleExpenseSubmit} style={{ background: '#e8f0fe', border: '1px solid #b0c4f0', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-                <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#1a3a7a' }}>Add Item</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#222' }}>
-                    Category
-                    <select name="category" value={expenseForm.category} onChange={handleExpenseFormChange} style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 4, fontSize: 14 }}>
-                      <option>Part</option>
-                      <option>Labor</option>
-                      <option>Material</option>
-                      <option>Equipment</option>
-                      <option>Other</option>
-                    </select>
-                  </label>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#222', gridColumn: 'span 2' }}>
-                    Description *
-                    <input name="description" value={expenseForm.description} onChange={handleExpenseFormChange} required placeholder="e.g. 1/2&quot; copper elbow" style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 4, fontSize: 14, boxSizing: 'border-box' }} />
-                  </label>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#222' }}>
-                    Part #
-                    <input name="partNumber" value={expenseForm.partNumber} onChange={handleExpenseFormChange} placeholder="optional" style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 4, fontSize: 14, boxSizing: 'border-box' }} />
-                  </label>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#222' }}>
-                    Vendor
-                    <input name="vendor" value={expenseForm.vendor} onChange={handleExpenseFormChange} placeholder="optional" style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 4, fontSize: 14, boxSizing: 'border-box' }} />
-                  </label>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#222' }}>
-                    Qty
-                    <input name="quantity" type="number" min="0" step="any" value={expenseForm.quantity} onChange={handleExpenseFormChange} style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 4, fontSize: 14, boxSizing: 'border-box' }} />
-                  </label>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#222' }}>
-                    Unit Cost ($)
-                    <input name="unitCost" type="number" min="0" step="0.01" value={expenseForm.unitCost} onChange={handleExpenseFormChange} placeholder="0.00" style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 4, fontSize: 14, boxSizing: 'border-box' }} />
-                  </label>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#222' }}>
-                    Total ($)
-                    <input name="totalCost" type="number" min="0" step="0.01" value={expenseForm.totalCost} onChange={handleExpenseFormChange} placeholder="auto" style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 4, fontSize: 14, background: '#f0f4ff', boxSizing: 'border-box' }} />
-                  </label>
-                </div>
-                <button type="submit" disabled={expenseSubmitting} style={{ marginTop: 14, background: '#0099FF', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                  {expenseSubmitting ? 'Adding...' : '+ Add Item'}
-                </button>
-              </form>
-              {expenseLoading && <p>Loading...</p>}
-              {!expenseLoading && woExpenses.length === 0 && <p style={{ color: '#888' }}>No items added yet.</p>}
-              {woExpenses.length > 0 && (
-                <>
-                  <table className="wo-table" style={{ background: '#fff' }}>
-                    <thead>
-                      <tr>
-                        <th>Category</th>
-                        <th>Description</th>
-                        <th>Part #</th>
-                        <th>Vendor</th>
-                        <th>Qty</th>
-                        <th>Unit $</th>
-                        <th>Total $</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {woExpenses.map((exp, i) => (
-                        <tr key={exp.id} style={{ background: i % 2 === 0 ? '#f0f4ff' : '#fff' }}>
-                          <td data-label="Category" style={{ color: '#111', fontWeight: 500 }}>{exp.category}</td>
-                          <td data-label="Description" style={{ color: '#111', fontWeight: 600 }}>{exp.description}</td>
-                          <td data-label="Part #" style={{ color: '#333' }}>{exp.partNumber || '—'}</td>
-                          <td data-label="Vendor" style={{ color: '#333' }}>{exp.vendor || '—'}</td>
-                          <td data-label="Qty" style={{ color: '#111', fontWeight: 500 }}>{exp.quantity}</td>
-                          <td data-label="Unit $" style={{ color: '#111' }}>{exp.unitCost ? `$${exp.unitCost}` : '—'}</td>
-                          <td data-label="Total $" style={{ color: '#0a6e0a', fontWeight: 700 }}>{exp.totalCost ? `$${exp.totalCost}` : '—'}</td>
-                          <td>
-                            <button onClick={() => handleDeleteExpense(exp.id)} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>✕</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <p style={{ textAlign: 'right', fontWeight: 700, marginTop: 8, fontSize: 16, color: '#0a6e0a' }}>
-                    Total: ${woExpenses.reduce((sum, e) => sum + (parseFloat(e.totalCost) || 0), 0).toFixed(2)}
-                  </p>
-                </>
-              )}
-              <button style={{ marginTop: 8 }} onClick={closeExpenseModal}>Close</button>
-            </div>
-          </div>
-        )}
+        <button onClick={() => setPage("home")} style={{ marginTop: 16 }}>Return to Home</button>
       </div>
     );
   }
@@ -2699,37 +2509,42 @@ function App() {
 
   // ── Payroll ───────────────────────────────────────────────────────────────
   if (page === 'payroll') {
-    // Pay period: starts Fri 7/10/2026, ends Thu 7/22/2026, paid 7/30/2026 — biweekly
-    const PAY_PERIOD_START = new Date('2026-07-10'); // First period start (Friday)
+    const PAY_PERIOD_START = new Date('2026-07-10');
     const PERIOD_DAYS = 14;
     const today = new Date();
-    // Find current period
     const msSincFirst = today.getTime() - PAY_PERIOD_START.getTime();
     const periodIndex = Math.floor(msSincFirst / (PERIOD_DAYS * 86400000));
     const currentPeriodStart = new Date(PAY_PERIOD_START.getTime() + periodIndex * PERIOD_DAYS * 86400000);
-    const currentPeriodEnd = new Date(currentPeriodStart.getTime() + 12 * 86400000); // +12 days = Thursday
-    const currentPayday = new Date(currentPeriodStart.getTime() + 20 * 86400000); // +20 days = following Friday
+    const currentPeriodEnd = new Date(currentPeriodStart.getTime() + 12 * 86400000);
+    const currentPayday = new Date(currentPeriodStart.getTime() + 20 * 86400000);
     const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const periodStartStr = currentPeriodStart.toISOString().slice(0,10);
+    const periodEndStr = currentPeriodEnd.toISOString().slice(0,10);
 
-    // Calc weekly hours per person from schedule
-    const weeklyHours = (profile: { schedule: Record<string, { hours: number }> }) =>
-      Object.values(profile.schedule).reduce((s, v) => s + (v.hours || 0), 0);
+    // Cleans assigned to each person in this period (completed/closed/invoiced/paid)
+    const billedStatuses = ['completed','closed','invoiced','sent','paid','nocharge'];
+    const cleansInPeriod = workOrders.filter(wo =>
+      billedStatuses.includes(wo.status) &&
+      wo.scheduledDate >= periodStartStr &&
+      wo.scheduledDate <= periodEndStr
+    );
 
-    const periodHours = (profile: { schedule: Record<string, { hours: number }> }) => weeklyHours(profile) * 2;
-    const periodPay = (profile: { schedule: Record<string, { hours: number }>; payRate: string }) =>
-      (periodHours(profile) * parseFloat(profile.payRate || '0')).toFixed(2);
+    const cleanEarnings = (profile: typeof teamProfiles[0]) => {
+      const myCleans = cleansInPeriod.filter(wo => wo.assignedTo === profile.username);
+      const pct = parseFloat(profile.payRate || '0') / 100;
+      return myCleans.reduce((sum, wo) => {
+        const price = parseFloat(wo.cleanPrice || '0') || 0;
+        return sum + price * pct;
+      }, 0);
+    };
 
-    // Days off in current period
     const daysOffInPeriod = (userId: number) =>
-      daysOff.filter(d => d.user_id === userId && d.date >= currentPeriodStart.toISOString().slice(0,10) && d.date <= currentPeriodEnd.toISOString().slice(0,10));
-
-    const fmtDayOff = (d: { date: string; type: string }) => `${d.date} (${d.type})`;
+      daysOff.filter(d => d.user_id === userId && d.date >= periodStartStr && d.date <= periodEndStr);
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', padding: '1rem' }}>
         <h1>Payroll</h1>
-        {/* Period info */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, width: '100%', maxWidth: 860, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, width: '100%', maxWidth: 900, marginBottom: 24 }}>
           <div style={{ background: '#fff', border: '1px solid #d0d8f0', borderRadius: 10, padding: '14px 18px', boxShadow: '0 2px 6px rgba(26,58,122,0.07)' }}>
             <div style={{ fontSize: 11, color: '#888', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Current Pay Period</div>
             <div style={{ fontWeight: 800, fontSize: 15, color: '#1a3a7a' }}>{fmtDate(currentPeriodStart)} – {fmtDate(currentPeriodEnd)}</div>
@@ -2741,37 +2556,52 @@ function App() {
         </div>
         {teamLoading && <p>Loading...</p>}
         {!teamLoading && (
-          <table className="wo-table" style={{ width: '100%', maxWidth: 860 }}>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Pay Rate</th>
-                <th>Sched Hrs/Wk</th>
-                <th>Period Hrs</th>
-                <th>Gross Pay</th>
-                <th>Days Off This Period</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teamProfiles.map(profile => (
-                <tr key={profile.userId}>
-                  <td data-label="Name"><strong>{profile.username}</strong></td>
-                  <td data-label="Pay Rate">${profile.payRate}/hr</td>
-                  <td data-label="Hrs/Wk">{weeklyHours(profile)}h</td>
-                  <td data-label="Period Hrs">{periodHours(profile)}h</td>
-                  <td data-label="Gross Pay" style={{ fontWeight: 700, color: '#2a9d2a' }}>${periodPay(profile)}</td>
-                  <td data-label="Days Off">
-                    {daysOffInPeriod(profile.userId).length === 0
-                      ? <span style={{ color: '#aaa' }}>—</span>
-                      : daysOffInPeriod(profile.userId).map(d => <div key={d.id} style={{ fontSize: 12 }}>{fmtDayOff(d)}</div>)
-                    }
-                  </td>
+          <div style={{ width: '100%', maxWidth: 900 }}>
+            <table className="wo-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Pay %</th>
+                  <th>Cleans This Period</th>
+                  <th>Clean Revenue</th>
+                  <th>Gross Pay</th>
+                  <th>Days Off</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {teamProfiles.map(profile => {
+                  const myCleans = cleansInPeriod.filter(wo => wo.assignedTo === profile.username);
+                  const earnings = cleanEarnings(profile);
+                  return (
+                    <tr key={profile.userId}>
+                      <td data-label="Name"><strong>{profile.username}</strong></td>
+                      <td data-label="Pay %">{profile.payRate}%</td>
+                      <td data-label="Cleans">
+                        <span style={{ fontWeight: 700, color: '#1a3a7a' }}>{myCleans.length}</span>
+                        {myCleans.length > 0 && (
+                          <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                            {myCleans.map(wo => <div key={wo.number}>{wo.number} — ${wo.cleanPrice || '0'}</div>)}
+                          </div>
+                        )}
+                      </td>
+                      <td data-label="Revenue" style={{ color: '#1a3a7a', fontWeight: 600 }}>
+                        ${myCleans.reduce((s, wo) => s + (parseFloat(wo.cleanPrice||'0')||0), 0).toFixed(2)}
+                      </td>
+                      <td data-label="Gross Pay" style={{ fontWeight: 800, color: '#2a9d2a', fontSize: 15 }}>${earnings.toFixed(2)}</td>
+                      <td data-label="Days Off">
+                        {daysOffInPeriod(profile.userId).length === 0
+                          ? <span style={{ color: '#aaa' }}>—</span>
+                          : daysOffInPeriod(profile.userId).map(d => <div key={d.id} style={{ fontSize: 12 }}>{d.date} ({d.type})</div>)
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-        <div style={{ marginTop: 24, width: '100%', maxWidth: 860 }}>
+        <div style={{ marginTop: 24, width: '100%', maxWidth: 900 }}>
           <h3 style={{ color: '#1a3a7a' }}>Upcoming Pay Periods</h3>
           <table className="wo-table">
             <thead><tr><th>#</th><th>Period Start (Fri)</th><th>Period End (Thu)</th><th>Payday (Fri)</th></tr></thead>
@@ -3648,20 +3478,23 @@ function App() {
     const buildInvoiceHTML = (wo: WorkOrder, exps: WorkOrderExpense[], overrideTitle?: string, overrideInstructions?: string, overrideBillingDesc?: string) => {
       const prop = properties.find((p: PropertyForm) => p.propertyName === wo.propertyName);
       const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      const total = exps.reduce((s, e) => s + (parseFloat(e.totalCost) || 0), 0);
+      // Clean price: use WO cleanPrice, fall back to property cleanPrice
+      const cleanPrice = parseFloat(wo.cleanPrice || prop?.cleanPrice || '0') || 0;
+      const extraExps = exps.filter(e => e.category !== 'Labor');
+      const extrasTotal = extraExps.reduce((s, e) => s + (parseFloat(e.totalCost) || 0), 0);
+      const total = cleanPrice + extrasTotal;
       const title = overrideTitle ?? wo.title;
       const instructions = overrideInstructions ?? wo.instructions;
       const billingDesc = overrideBillingDesc ?? (localStorage.getItem(`bd_${wo.number}`) || '');
-      // Invoice number: address number + date of service (MMDDYY)
       const addrNum = [prop?.address, prop?.street].reduce((found: string | undefined, f) => found || (f || '').match(/\d+/)?.[0], undefined) || wo.number.replace('WO-','');
       const todayMMDDYY = (() => { const n = new Date(); const m = String(n.getMonth()+1).padStart(2,'0'); const d = String(n.getDate()).padStart(2,'0'); const y = String(n.getFullYear()).slice(2); return m+d+y; })();
       const invoiceNum = `${addrNum}-${todayMMDDYY}`;
       const addrLine1 = prop?.address || '';
       const addrLine2 = prop?.street || '';
       const billToLine2 = `${prop?.city||''}${prop?.city&&prop?.state?', ':''}${prop?.state||''} ${prop?.zip||''}`.trim();
-      const itemRows = exps.length > 0
-        ? exps.map((e, i) => `<tr style="background:${i%2===0?'#f0f4ff':'#fff'};"><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${i+1}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${e.description}${e.partNumber ? ` <span style="color:#888;font-size:11px;">(${e.partNumber})</span>` : ''}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${e.category}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;text-align:right;">${e.totalCost ? '$'+parseFloat(e.totalCost).toFixed(2) : '—'}</td></tr>`).join('')
-        : `<tr style="background:#f0f4ff;"><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">1</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;white-space:pre-wrap;">${instructions}</td><td></td><td></td></tr>${[2,3,4,5].map(n=>`<tr><td style="padding:10px 12px;border-bottom:1px solid #eee;color:#bbb;">${n}</td><td style="padding:10px 12px;border-bottom:1px solid #eee;">&nbsp;</td><td></td><td></td></tr>`).join('')}`;
+      const cleanRow = `<tr style="background:#f0f4ff;"><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">1</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">Cleaning Service — ${wo.propertyName}${instructions ? `<br><span style="color:#666;font-size:12px;">${instructions}</span>` : ''}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">Service</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;text-align:right;">${cleanPrice > 0 ? '$'+cleanPrice.toFixed(2) : '—'}</td></tr>`;
+      const extraRows = extraExps.map((e, i) => `<tr style="background:${(i+1)%2===0?'#f0f4ff':'#fff'};"><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${i+2}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${e.description}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${e.category}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;text-align:right;">${e.totalCost ? '$'+parseFloat(e.totalCost).toFixed(2) : '—'}</td></tr>`).join('');
+      const itemRows = cleanRow + extraRows;
       return `<!DOCTYPE html><html><head><title>Invoice ${invoiceNum}</title><style>body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111;}table{border-collapse:collapse;width:100%;}th,td{padding:9px 12px;}@media print{body{padding:16px;}}</style></head><body>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #1a3a7a;">
           <img src="/logo.png" alt="First Choice" style="height:80px;object-fit:contain;" />
@@ -3754,17 +3587,32 @@ function App() {
                       const exps = await api.fetchWorkOrderExpenses(wo.number);
                       const savedBillingDesc = localStorage.getItem(`bd_${wo.number}`) || '';
                       setEditingInvoiceWO(wo);
+                      const prop = properties.find((p: PropertyForm) => p.propertyName === wo.propertyName);
+                      const cleanPrice = wo.cleanPrice || prop?.cleanPrice || '0';
+                      const nonLaborExps = exps.filter((e: WorkOrderExpense) => e.category !== 'Labor');
+                      const cleanLineItem = {
+                        id: -1,
+                        workOrderNumber: wo.number,
+                        description: `Cleaning Service — ${wo.propertyName}`,
+                        category: 'Service',
+                        quantity: '1',
+                        unitCost: cleanPrice,
+                        totalCost: cleanPrice,
+                        vendor: '',
+                        partNumber: '',
+                        markup: 0,
+                      };
                       setEditInvoiceForm({
                         title: wo.title,
                         instructions: wo.instructions,
                         billingDescription: savedBillingDesc,
-                        editExpenses: exps.map((e: WorkOrderExpense) => {
+                        editExpenses: [cleanLineItem, ...nonLaborExps.map((e: WorkOrderExpense) => {
                           const markup = e.category === 'Part' ? 10 : 0;
                           const totalWithMarkup = e.category === 'Part'
                             ? (parseFloat(e.quantity) * parseFloat(e.unitCost) * (1 + markup / 100)).toFixed(2)
                             : e.totalCost;
                           return { ...e, markup, totalCost: totalWithMarkup };
-                        }),
+                        })],
                         expensesLoading: false
                       });
                     }}>✏️ Edit</button>
@@ -3937,14 +3785,14 @@ function App() {
                         description: 'Service Fee (Card/Pay Link)',
                         category: 'Fee',
                         quantity: '1',
-                        unitCost: '3.00',
-                        totalCost: '3.00',
+                        unitCost: '4.63',
+                        totalCost: '4.63',
                         vendor: '',
                         partNumber: '',
                         markup: 0,
                       }]
                     }))}>
-                    ➕ Add Service Fee ($3.00)
+                    ➕ Add Service Fee ($4.63)
                   </button>
                 </div>
 
