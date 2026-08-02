@@ -4413,12 +4413,21 @@ function App() {
                   onClick={() => setShowLogout(false)}>
                   {techDashStyle === 'dropdown' && (
                     <>
-                      <button onClick={() => setPage('workorder')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#1a3a7a' }}>📋 New Work Order</button>
-                      <button onClick={() => setPage('workorderlistdraft')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#1a3a7a' }}>📂 Drafts</button>
-                      <button onClick={() => setPage('completedworkorders')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#2a9d2a' }}>✓ Completed</button>
+                      <button onClick={() => setPage('workorder')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#1a3a7a' }}>📋 New Clean</button>
+                      <button onClick={() => setPage('workorderlistdraft')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#1a3a7a' }}>📂 Draft Cleans</button>
+                      <button onClick={() => setPage('completedworkorders')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#2a9d2a' }}>✓ Completed Cleans</button>
                       <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
                     </>
                   )}
+                  <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
+                  <div style={{ padding: '6px 12px 4px', fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.7 }}>Nav Style</div>
+                  <button onClick={() => setTechDashStyle('classic')} style={{ width: '100%', textAlign: 'left', background: techDashStyle === 'classic' ? '#f0f4ff' : 'none', border: 'none', borderRadius: 6, padding: '8px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: techDashStyle === 'classic' ? '#1a3a7a' : '#555', display: 'flex', justifyContent: 'space-between' }}>
+                    📦 Classic {techDashStyle === 'classic' && <span style={{ fontSize: 11, background: '#1a3a7a', color: '#fff', borderRadius: 8, padding: '1px 7px' }}>✓</span>}
+                  </button>
+                  <button onClick={() => setTechDashStyle('dropdown')} style={{ width: '100%', textAlign: 'left', background: techDashStyle === 'dropdown' ? '#f0f4ff' : 'none', border: 'none', borderRadius: 6, padding: '8px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: techDashStyle === 'dropdown' ? '#1a3a7a' : '#555', display: 'flex', justifyContent: 'space-between' }}>
+                    ▼ Dropdown {techDashStyle === 'dropdown' && <span style={{ fontSize: 11, background: '#1a3a7a', color: '#fff', borderRadius: 8, padding: '1px 7px' }}>✓</span>}
+                  </button>
+                  <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
                   <button onClick={() => setPage('settingspersonal')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 6, padding: '9px 12px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#555' }}>⚙️ Settings</button>
                   {(authUser.userType as string) === 'mgr' && (
                     <>
@@ -4479,7 +4488,7 @@ function App() {
           {techDashStyle === 'classic' && (
             <>
               {[
-                { icon: <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><line x1="13" y1="4" x2="13" y2="22" stroke="#1a3a7a" strokeWidth="2.5" strokeLinecap="round"/><line x1="4" y1="13" x2="22" y2="13" stroke="#1a3a7a" strokeWidth="2.5" strokeLinecap="round"/></svg>, label: 'New WO', action: () => setPage('workorder') },
+                { icon: <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><line x1="13" y1="4" x2="13" y2="22" stroke="#1a3a7a" strokeWidth="2.5" strokeLinecap="round"/><line x1="4" y1="13" x2="22" y2="13" stroke="#1a3a7a" strokeWidth="2.5" strokeLinecap="round"/></svg>, label: 'New Clean', action: () => setPage('workorder') },
                 { icon: <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M5 21L21 5" stroke="#1a3a7a" strokeWidth="2.5" strokeLinecap="round"/><path d="M13 5h8v8" stroke="#1a3a7a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>, label: 'Drafts', action: () => setPage('workorderlistdraft') },
                 { icon: <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="5" width="18" height="16" rx="3" stroke="#1a3a7a" strokeWidth="2"/><line x1="8" y1="10" x2="18" y2="10" stroke="#1a3a7a" strokeWidth="1.8" strokeLinecap="round"/><line x1="8" y1="14" x2="18" y2="14" stroke="#1a3a7a" strokeWidth="1.8" strokeLinecap="round"/><line x1="8" y1="18" x2="14" y2="18" stroke="#1a3a7a" strokeWidth="1.8" strokeLinecap="round"/></svg>, label: 'Active', action: () => setPage('workorderlist') },
                 { icon: <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4 13l6 6L22 7" stroke="#2a9d2a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>, label: 'Done', action: () => setPage('completedworkorders') },
