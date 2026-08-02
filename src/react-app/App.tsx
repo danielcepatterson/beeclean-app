@@ -33,6 +33,8 @@ type WorkOrder = {
   completedAt?: string;
   assignedTo?: string;
   createdBy?: string;
+  cleanPrice?: string;
+  cleanCost?: string;
   history: WorkOrderHistoryEntry[];
 };
 type VendorForm = {
@@ -139,6 +141,8 @@ function App() {
     scheduledTime: '',
     scheduledDate: '',
     assignedTo: '',
+    cleanPrice: '',
+    cleanCost: '',
     status: 'draft',
     history: [],
   });
@@ -485,11 +489,13 @@ function App() {
       scheduledTime: woForm.scheduledTime,
       scheduledDate: woForm.scheduledDate,
       assignedTo: woForm.assignedTo || '',
+      cleanPrice: woForm.cleanPrice || '',
+      cleanCost: woForm.cleanCost || '',
     };
     await api.createWorkOrder(newWO);
     await loadAllData();
     setWoSubmitted(true);
-    setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', status: 'draft', history: [] });
+    setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', cleanPrice: '', cleanCost: '', status: 'draft', history: [] });
   };
 
   const activateWorkOrder = async (number: string) => {
@@ -1816,6 +1822,36 @@ function App() {
                 ))}
               </select>
             </label>
+            <label>
+              Clean Price ($)
+              <input
+                name="cleanPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={woForm.cleanPrice || ''}
+                onChange={e => {
+                  const price = e.target.value;
+                  const suggested = price ? (parseFloat(price) * 0.7).toFixed(2) : '';
+                  setWoForm(prev => ({ ...prev, cleanPrice: price, cleanCost: suggested }));
+                }}
+                style={{ width: '100%' }}
+              />
+            </label>
+            <label>
+              Clean Cost ($) <span style={{ fontSize: 11, color: '#888', fontWeight: 400 }}>(suggested: 70% of price)</span>
+              <input
+                name="cleanCost"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={woForm.cleanCost || ''}
+                onChange={handleWoFormChange}
+                style={{ width: '100%' }}
+              />
+            </label>
             <button type="submit">Draft Work Order</button>
             <button type="button" onClick={async () => {
               const form = document.querySelector('form') as HTMLFormElement;
@@ -1828,12 +1864,14 @@ function App() {
                 scheduledTime: woForm.scheduledTime,
                 scheduledDate: woForm.scheduledDate,
                 assignedTo: woForm.assignedTo || '',
+                cleanPrice: woForm.cleanPrice || '',
+                cleanCost: woForm.cleanCost || '',
               };
               await api.createWorkOrder(newWO);
               await api.updateWorkOrderStatus(newWO.number, 'active');
               await loadAllData();
               setWoSubmitted(true);
-              setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', status: 'draft', history: [] });
+              setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', cleanPrice: '', cleanCost: '', status: 'draft', history: [] });
             }}>Activate Work Order</button>
             <button type="button" onClick={() => setPage("home")}>Return to Home</button>
           </form>
@@ -2500,7 +2538,7 @@ function App() {
                 <tr style={{ background: '#1a3a7a', color: '#fff' }}>
                   <th style={{ padding: '10px 14px', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, fontSize: 13 }}>Team Member</th>
                   {DAYS.map(d => <th key={d} style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{d.slice(0,3)}</th>)}
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>Pay Rate</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>Pay %</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>PTO Left</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>Sick Left</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 12 }}>Edit</th>
@@ -2530,7 +2568,7 @@ function App() {
                         </td>
                       );
                     })}
-                    <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#1a3a7a', whiteSpace: 'nowrap' }}>${profile.payRate}/hr</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#1a3a7a', whiteSpace: 'nowrap' }}>{profile.payRate}%</td>
                     <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                       <div style={{ fontWeight: 700, color: profile.ptoTotal - profile.ptoUsed > 0 ? '#2a9d2a' : '#c00', fontSize: 15 }}>{profile.ptoTotal - profile.ptoUsed}</div>
                       <div style={{ fontSize: 10, color: '#aaa' }}>{profile.ptoUsed}/{profile.ptoTotal}</div>
@@ -2558,10 +2596,24 @@ function App() {
               <h2 style={{ margin: '0 0 16px', color: '#1a3a7a' }}>Edit — {editingProfile.username}</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13 }}>Pay Rate ($/hr)
-                    <input type="number" min="0" step="0.01" value={profileForm.payRate} onChange={e => setProfileForm(p => p ? { ...p, payRate: e.target.value } : p)}
-                      style={{ display: 'block', width: '100%', marginTop: 4, padding: '7px 10px', border: '1px solid #aaa', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
-                  </label>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Pay Rate (% of clean price)</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {['50', '60', '70', '100'].map(pct => (
+                        <button key={pct} type="button"
+                          onClick={() => setProfileForm(p => p ? { ...p, payRate: pct } : p)}
+                          style={{ flex: '1 1 60px', padding: '10px 0', borderRadius: 8, border: `2px solid ${profileForm.payRate === pct ? '#1a3a7a' : '#d0d8f0'}`,
+                            background: profileForm.payRate === pct ? '#1a3a7a' : '#f8f9ff',
+                            color: profileForm.payRate === pct ? '#fff' : '#1a3a7a',
+                            fontWeight: 700, fontSize: 16, cursor: 'pointer', transition: 'all 0.15s' }}>
+                          {pct}%
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>
+                      Selected: <strong style={{ color: '#1a3a7a' }}>{profileForm.payRate}%</strong> of clean price — e.g. a $100 clean pays <strong style={{ color: '#2a9d2a' }}>${((parseFloat(profileForm.payRate) || 0)).toFixed(0)}</strong>
+                    </div>
+                  </div>
                   <label style={{ fontWeight: 600, fontSize: 13 }}>PTO Total (days)
                     <input type="number" min="0" value={profileForm.ptoTotal} onChange={e => setProfileForm(p => p ? { ...p, ptoTotal: parseInt(e.target.value) || 0 } : p)}
                       style={{ display: 'block', width: '100%', marginTop: 4, padding: '7px 10px', border: '1px solid #aaa', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />

@@ -62,6 +62,8 @@ async function runMigrations(db: D1Database) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS days_off (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, date TEXT NOT NULL, reason TEXT NOT NULL DEFAULT '', type TEXT NOT NULL DEFAULT 'PTO', status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT (datetime('now')))`).run();
   try { await db.prepare(`ALTER TABLE work_orders ADD COLUMN assigned_to TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
   try { await db.prepare(`ALTER TABLE work_orders ADD COLUMN created_by TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
+  try { await db.prepare(`ALTER TABLE work_orders ADD COLUMN clean_price TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
+  try { await db.prepare(`ALTER TABLE work_orders ADD COLUMN clean_cost TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
   try { await db.prepare(`ALTER TABLE work_order_history ADD COLUMN changed_by TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
   await db.prepare(`CREATE TABLE IF NOT EXISTS recurring_items (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, property_name TEXT NOT NULL DEFAULT '', instructions TEXT NOT NULL DEFAULT '', frequency TEXT NOT NULL DEFAULT 'monthly', day_of_week TEXT NOT NULL DEFAULT '', day_of_month INTEGER NOT NULL DEFAULT 1, assigned_to TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, last_generated TEXT NOT NULL DEFAULT '', next_due TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS internal_services (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'general', description TEXT NOT NULL DEFAULT '', frequency TEXT NOT NULL DEFAULT 'monthly', day_of_week TEXT NOT NULL DEFAULT '', day_of_month INTEGER NOT NULL DEFAULT 1, assigned_to TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, last_completed TEXT NOT NULL DEFAULT '', next_due TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`).run();
@@ -460,6 +462,8 @@ app.get("/api/work-orders", async (c) => {
         completedAt: wo.completed_at,
         assignedTo: wo.assigned_to || '',
         createdBy: wo.created_by || '',
+        cleanPrice: wo.clean_price || '',
+        cleanCost: wo.clean_cost || '',
         history: (history || []).map((h: any) => ({ status: h.status, timestamp: h.timestamp, changedBy: h.changed_by || '' })),
       };
     })
@@ -471,12 +475,12 @@ app.post("/api/work-orders", async (c) => {
   const user = await getUser(c);
   if (!user) return unauthorized();
   const body = await c.req.json();
-  const { number, propertyName, title, instructions, scheduledTime, scheduledDate } = body;
+  const { number, propertyName, title, instructions, scheduledTime, scheduledDate, cleanPrice, cleanCost } = body;
   const now = new Date().toISOString();
   await c.env.DB.prepare(
-    "INSERT INTO work_orders (number, property_name, title, instructions, scheduled_time, scheduled_date, status) VALUES (?, ?, ?, ?, ?, ?, 'draft')"
+    "INSERT INTO work_orders (number, property_name, title, instructions, scheduled_time, scheduled_date, status, clean_price, clean_cost) VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?)"
   )
-    .bind(number, propertyName, title, instructions, scheduledTime, scheduledDate)
+    .bind(number, propertyName, title, instructions, scheduledTime, scheduledDate, cleanPrice || '', cleanCost || '')
     .run();
   await c.env.DB.prepare("INSERT INTO work_order_history (work_order_number, status, timestamp) VALUES (?, 'draft', ?)")
     .bind(number, now)
@@ -529,10 +533,10 @@ app.put("/api/work-orders/:number", async (c) => {
   const user = await getUser(c);
   if (!user) return unauthorized();
   const woNumber = c.req.param("number");
-  const { propertyName, title, instructions, scheduledDate, scheduledTime, assignedTo } = await c.req.json();
+  const { propertyName, title, instructions, scheduledDate, scheduledTime, assignedTo, cleanPrice, cleanCost } = await c.req.json();
   await c.env.DB.prepare(
-    "UPDATE work_orders SET property_name = ?, title = ?, instructions = ?, scheduled_date = ?, scheduled_time = ?, assigned_to = ? WHERE number = ?"
-  ).bind(propertyName, title, instructions, scheduledDate, scheduledTime, assignedTo ?? '', woNumber).run();
+    "UPDATE work_orders SET property_name = ?, title = ?, instructions = ?, scheduled_date = ?, scheduled_time = ?, assigned_to = ?, clean_price = ?, clean_cost = ? WHERE number = ?"
+  ).bind(propertyName, title, instructions, scheduledDate, scheduledTime, assignedTo ?? '', cleanPrice ?? '', cleanCost ?? '', woNumber).run();
   await writeLog(c.env.DB, user.username, 'update_workorder', 'workorder', woNumber, `Updated WO details`);
   return c.json({ ok: true });
 });
