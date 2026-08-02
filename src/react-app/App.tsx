@@ -2005,6 +2005,128 @@ function App() {
       </div>
     );
   }
+
+  if (page === "masscreatecleans") {
+    const cellStyle: React.CSSProperties = { border: '1px solid #ccc', padding: 0 };
+    const inputStyle: React.CSSProperties = { width: '100%', border: 'none', padding: '6px 7px', fontSize: 13, background: 'transparent', boxSizing: 'border-box' as const, outline: 'none' };
+    const thStyle: React.CSSProperties = { border: '1px solid #b0b8cc', padding: '8px 9px', background: '#1a3a7a', color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' as const };
+
+    const updateCleanRow = (idx: number, field: keyof CleanRow, val: string) => {
+      setMassCleanRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+    };
+    const addCleanRow = () => setMassCleanRows(rows => [...rows, blankCleanRow()]);
+    const removeCleanRow = (idx: number) => setMassCleanRows(rows => rows.filter((_, i) => i !== idx));
+
+    const saveCleans = async () => {
+      const toCreate = massCleanRows.filter(r => r.propertyName.trim());
+      if (toCreate.length === 0) { alert('Add at least one row with a property name.'); return; }
+      setMassCleanSaving(true);
+      setMassCleanSaved(false);
+      try {
+        const baseNum = await api.fetchNextWorkOrderNumber();
+        let counter = parseInt(baseNum.replace('WO-', ''));
+        for (const row of toCreate) {
+          const prop = properties.find((p: PropertyForm) => p.propertyName === row.propertyName);
+          const price = row.cleanPrice || prop?.cleanPrice || '';
+          const cost = price ? (parseFloat(price) * 0.7).toFixed(2) : '';
+          const wo = {
+            number: `WO-${counter++}`,
+            propertyName: row.propertyName,
+            title: row.propertyName,
+            instructions: row.instructions,
+            scheduledDate: row.scheduledDate,
+            scheduledTime: row.scheduledTime,
+            assignedTo: row.assignedTo,
+            cleanPrice: price,
+            cleanCost: cost,
+          };
+          await api.createWorkOrder(wo);
+          if (row.assignedTo) await api.assignWorkOrder(wo.number, row.assignedTo);
+          await api.updateWorkOrderStatus(wo.number, 'active');
+        }
+        await loadAllData();
+        setMassCleanRows([blankCleanRow(), blankCleanRow(), blankCleanRow()]);
+        setMassCleanSaved(true);
+        setTimeout(() => setMassCleanSaved(false), 4000);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to save. Please try again.');
+      } finally {
+        setMassCleanSaving(false);
+      }
+    };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', padding: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 1300, marginBottom: 12 }}>
+          <h1 style={{ margin: 0 }}>Mass Create Cleans</h1>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {massCleanSaved && <span style={{ color: '#2a9d2a', fontWeight: 700, fontSize: 14 }}>✓ {massCleanRows.filter(r => r.propertyName.trim()).length} clean(s) created!</span>}
+            <button onClick={addCleanRow} style={{ background: '#0099FF', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>+ Add Row</button>
+            <button onClick={saveCleans} disabled={massCleanSaving} style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+              {massCleanSaving ? 'Creating…' : '⚡ Create All Active'}
+            </button>
+            <button onClick={() => setPage('home')} style={{ background: '#888', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>← Back</button>
+          </div>
+        </div>
+        <div style={{ width: '100%', maxWidth: 1300, overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 900 }}>
+            <thead>
+              <tr>
+                <th style={{ ...thStyle, width: 200 }}>Property *</th>
+                <th style={{ ...thStyle, width: 130 }}>Date</th>
+                <th style={{ ...thStyle, width: 100 }}>Time</th>
+                <th style={{ ...thStyle, width: 160 }}>Assign To</th>
+                <th style={{ ...thStyle, width: 100 }}>Clean Price $</th>
+                <th style={{ ...thStyle }}>Instructions</th>
+                <th style={{ ...thStyle, width: 50 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {massCleanRows.map((row, idx) => (
+                <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#f7f9ff' }}>
+                  <td style={cellStyle}>
+                    <select value={row.propertyName} onChange={e => {
+                      const pn = e.target.value;
+                      const prop = properties.find((p: PropertyForm) => p.propertyName === pn);
+                      updateCleanRow(idx, 'propertyName', pn);
+                      if (prop?.cleanPrice) updateCleanRow(idx, 'cleanPrice', prop.cleanPrice);
+                    }} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="">— select property —</option>
+                      {properties.map((p: PropertyForm, i: number) => (
+                        <option key={i} value={p.propertyName}>{p.propertyName}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td style={cellStyle}><input type="date" value={row.scheduledDate} onChange={e => updateCleanRow(idx, 'scheduledDate', e.target.value)} style={inputStyle} /></td>
+                  <td style={cellStyle}><input type="time" value={row.scheduledTime} onChange={e => updateCleanRow(idx, 'scheduledTime', e.target.value)} style={inputStyle} /></td>
+                  <td style={cellStyle}>
+                    <select value={row.assignedTo} onChange={e => updateCleanRow(idx, 'assignedTo', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="">— unassigned —</option>
+                      {teamProfiles.map(tp => <option key={tp.userId} value={tp.username}>{tp.username}</option>)}
+                    </select>
+                  </td>
+                  <td style={cellStyle}><input type="number" min="0" step="0.01" value={row.cleanPrice} onChange={e => updateCleanRow(idx, 'cleanPrice', e.target.value)} placeholder="auto" style={inputStyle} /></td>
+                  <td style={cellStyle}><input value={row.instructions} onChange={e => updateCleanRow(idx, 'instructions', e.target.value)} placeholder="optional" style={inputStyle} /></td>
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>
+                    <button onClick={() => removeCleanRow(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4d4d', fontSize: 16, padding: '4px 8px' }}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
+          <button onClick={addCleanRow} style={{ background: '#0099FF', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>+ Add Row</button>
+          <button onClick={saveCleans} disabled={massCleanSaving} style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+            {massCleanSaving ? 'Creating…' : '⚡ Create All Active'}
+          </button>
+        </div>
+        <p style={{ color: '#888', fontSize: 12, marginTop: 8 }}>All filled rows will be created as <strong>Active</strong> cleans. Clean price auto-fills from the property if left blank.</p>
+      </div>
+    );
+  }
+
   if (page === "workorderlistdraft") {
     const rawDraft = workOrders.filter((wo) => wo.status === 'draft');
     const draftOrders = (authUser?.userType === 'tech' && techWOFilter === 'assigned')
