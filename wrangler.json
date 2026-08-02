@@ -3,7 +3,9 @@
 	"name": "beeclean-app",
 	"main": "./src/worker/index.ts",
 	"compatibility_date": "2025-10-08",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"observability": {
 		"enabled": true
 	},
@@ -11,5 +13,13 @@
 	"assets": {
 		"directory": "./dist/client",
 		"not_found_handling": "single-page-application"
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "beeclean-db",
+			"database_id": "2ddf8aa9-fb7f-427a-b0ba-176e550b1416",
+			"remote": true
+		}
+	]
 }
