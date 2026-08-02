@@ -587,10 +587,11 @@ function App() {
 
   const handleWoFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!woForm.propertyName) { alert('Please select a property.'); return; }
     const newWO = {
       number: nextWoNumber,
       propertyName: woForm.propertyName,
-      title: woForm.title,
+      title: woForm.title || woForm.propertyName,
       instructions: woForm.instructions,
       scheduledTime: woForm.scheduledTime,
       scheduledDate: woForm.scheduledDate,
@@ -598,10 +599,15 @@ function App() {
       cleanPrice: woForm.cleanPrice || '',
       cleanCost: woForm.cleanCost || '',
     };
-    await api.createWorkOrder(newWO);
-    await loadAllData();
-    setWoSubmitted(true);
-    setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', cleanPrice: '', cleanCost: '', status: 'draft', history: [] });
+    try {
+      await api.createWorkOrder(newWO);
+      await loadAllData();
+      setWoSubmitted(true);
+      setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', cleanPrice: '', cleanCost: '', status: 'draft', history: [] });
+    } catch (err) {
+      console.error('Failed to create clean:', err);
+      alert('Failed to create clean. Please try again.');
+    }
   };
 
   const activateWorkOrder = async (number: string) => {
@@ -1752,7 +1758,7 @@ function App() {
         {woSubmitted ? (
           <>
             <p style={{ color: 'green' }}>Clean submitted!</p>
-            <button onClick={() => { setPage("home"); setWoSubmitted(false); setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '' }); }}>Return to Home</button>
+            <button onClick={() => { setPage("home"); setWoSubmitted(false); setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', cleanPrice: '', cleanCost: '', status: 'draft', history: [] }); }}>Return to Home</button>
           </>
         ) : (
           <form onSubmit={handleWoFormSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", minWidth: 350 }}>
@@ -1826,14 +1832,15 @@ function App() {
                 style={{ width: '100%' }}
               />
             </label>
-            <button type="submit">Draft Work Order</button>
-            <button type="button" onClick={async () => {
-              const form = document.querySelector('form') as HTMLFormElement;
+            <button type="submit">Draft Clean</button>
+            <button type="button" onClick={async (e) => {
+              const form = (e.currentTarget as HTMLButtonElement).closest('form') as HTMLFormElement;
               if (form && !form.reportValidity()) return;
+              if (!woForm.propertyName) { alert('Please select a property.'); return; }
               const newWO = {
                 number: nextWoNumber,
                 propertyName: woForm.propertyName,
-                title: woForm.title,
+                title: woForm.title || woForm.propertyName,
                 instructions: woForm.instructions,
                 scheduledTime: woForm.scheduledTime,
                 scheduledDate: woForm.scheduledDate,
@@ -1841,12 +1848,17 @@ function App() {
                 cleanPrice: woForm.cleanPrice || '',
                 cleanCost: woForm.cleanCost || '',
               };
-              await api.createWorkOrder(newWO);
-              await api.updateWorkOrderStatus(newWO.number, 'active');
-              await loadAllData();
-              setWoSubmitted(true);
-              setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', cleanPrice: '', cleanCost: '', status: 'draft', history: [] });
-            }}>Activate Work Order</button>
+              try {
+                await api.createWorkOrder(newWO);
+                await api.updateWorkOrderStatus(newWO.number, 'active');
+                await loadAllData();
+                setWoSubmitted(true);
+                setWoForm({ propertyName: '', title: '', instructions: '', scheduledTime: '', scheduledDate: '', assignedTo: '', cleanPrice: '', cleanCost: '', status: 'draft', history: [] });
+              } catch (err) {
+                console.error('Failed to activate clean:', err);
+                alert('Failed to create clean. Please try again.');
+              }
+            }}>Activate Clean</button>
             <button type="button" onClick={() => setPage("home")}>Return to Home</button>
           </form>
         )}
