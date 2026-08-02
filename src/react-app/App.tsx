@@ -1872,15 +1872,15 @@ function App() {
         {properties.length === 0 ? (
           <p>No properties have been added yet.</p>
         ) : (
-          <table style={{ borderCollapse: "collapse", minWidth: 700, margin: "1rem 0", width: '100%', maxWidth: 1100 }}>
+          <table style={{ borderCollapse: "collapse", minWidth: 700, margin: "1rem 0", width: '100%', maxWidth: 1300 }}>
             <thead>
               <tr>
                 <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Property Name</th>
+                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Rental Agency</th>
+                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Clean Price</th>
                 <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Address</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Street</th>
                 <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>City</th>
                 <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>State</th>
-                <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Zip</th>
                 <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Owner Name</th>
                 <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Owner Phone</th>
                 <th style={{ border: "1px solid #444", padding: "8px", background: "#f0f0f0" }}>Actions</th>
@@ -1889,14 +1889,14 @@ function App() {
             <tbody>
               {properties.map((prop: PropertyForm, idx: number) => (
                 <tr key={idx}>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.propertyName}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.address}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.street}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.city}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.state}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.zip}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.ownerName}</td>
-                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.ownerPhone}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px", fontWeight: 600 }}>{prop.propertyName}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.rentalAgency || '—'}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px", fontWeight: 700, color: '#2a9d2a' }}>{prop.cleanPrice ? `$${parseFloat(prop.cleanPrice).toFixed(2)}` : '—'}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px" }}>{[prop.address, prop.street].filter(Boolean).join(' ') || '—'}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.city || '—'}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.state || '—'}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.ownerName || '—'}</td>
+                  <td style={{ border: "1px solid #444", padding: "8px" }}>{prop.ownerPhone || '—'}</td>
                   <td style={{ border: "1px solid #444", padding: "8px", textAlign: "center", whiteSpace: 'nowrap' }}>
                     <button style={{ background: '#6c3db5', color: 'white', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', marginRight: 6 }} onClick={() => { setEditingProperty(prop); setEditPropertyForm({ ...prop }); }}>✏️ Edit</button>
                     {authUser?.userType === 'admin' && (
@@ -1926,12 +1926,16 @@ function App() {
                 } catch { alert('Save failed.'); }
                 finally { setEditPropertySaving(false); }
               }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {(['propertyName','address','street','city','state','zip','ownerName','ownerPhone'] as (keyof PropertyForm)[]).map(field => (
-                  <label key={field} style={{ fontWeight: 600, fontSize: 13, gridColumn: field === 'address' || field === 'propertyName' ? '1/-1' : undefined }}>
-                    {field.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
-                    <input value={editPropertyForm[field] as string} onChange={e => setEditPropertyForm(p => ({ ...p, [field]: e.target.value }))} required style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
+                {(['propertyName','rentalAgency','address','street','city','state','zip','ownerName','ownerPhone'] as (keyof PropertyForm)[]).map(field => (
+                  <label key={field} style={{ fontWeight: 600, fontSize: 13, gridColumn: field === 'address' || field === 'propertyName' || field === 'rentalAgency' ? '1/-1' : undefined }}>
+                    {field === 'rentalAgency' ? 'Rental Agency' : field === 'cleanPrice' ? 'Clean Price ($)' : field.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
+                    <input value={editPropertyForm[field] as string || ''} onChange={e => setEditPropertyForm(p => ({ ...p, [field]: e.target.value }))} required={field !== 'rentalAgency' && field !== 'street'} style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
                   </label>
                 ))}
+                <label style={{ fontWeight: 600, fontSize: 13 }}>
+                  Clean Price ($)
+                  <input type="number" min="0" step="0.01" value={editPropertyForm.cleanPrice || ''} onChange={e => setEditPropertyForm(p => ({ ...p, cleanPrice: e.target.value }))} placeholder="0.00" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
+                </label>
                 <div style={{ gridColumn: '1/-1', display: 'flex', gap: 10, marginTop: 4 }}>
                   <button type="submit" disabled={editPropertySaving} style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 22px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{editPropertySaving ? 'Saving...' : '✓ Save'}</button>
                   <button type="button" onClick={() => setEditingProperty(null)} style={{ background: '#888', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
