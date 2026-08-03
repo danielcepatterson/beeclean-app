@@ -350,6 +350,7 @@ function App() {
   const [revTo, setRevTo] = React.useState('');
   const [revGroupBy, setRevGroupBy] = React.useState<'agency'|'tech'|'month'>('agency');
   const [revOmitted, setRevOmitted] = React.useState<Set<string>>(new Set());
+  const [dashActiveFilter, setDashActiveFilter] = React.useState('');
 
   // Expense state
   const [selectedWOForExpenses, setSelectedWOForExpenses] = React.useState<WorkOrder | null>(null);
@@ -5570,6 +5571,97 @@ function App() {
             })()}
           </div>
         </div>
+
+        {/* Active Work Orders Table */}
+        {(() => {
+          const activeWOList = workOrders.filter(w => w.status === 'active');
+          const getProp = (wo: WorkOrder) => properties.find(p => p.propertyName === wo.propertyName);
+          const filt = dashActiveFilter.trim().toLowerCase();
+          const filtered = filt
+            ? activeWOList.filter(w => {
+                const prop = getProp(w);
+                return (w.propertyName || '').toLowerCase().includes(filt) ||
+                  (prop?.rentalAgency || '').toLowerCase().includes(filt) ||
+                  (w.assignedTo || '').toLowerCase().includes(filt) ||
+                  (w.number || '').toLowerCase().includes(filt);
+              })
+            : activeWOList;
+          // sort: soonest scheduled date first, undated at end
+          const sorted = [...filtered].sort((a, b) => {
+            if (!a.scheduledDate && !b.scheduledDate) return 0;
+            if (!a.scheduledDate) return 1;
+            if (!b.scheduledDate) return -1;
+            return a.scheduledDate < b.scheduledDate ? -1 : 1;
+          });
+          const todayStr = new Date().toISOString().slice(0, 10);
+          return (
+            <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(26,58,122,0.08)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: '1px solid #e0e8f0', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: '#1a3a7a' }}>🧹 Active Work Orders</span>
+                  <span style={{ background: '#0099FF', color: '#fff', borderRadius: 10, padding: '2px 9px', fontSize: 12, fontWeight: 700 }}>{activeWOList.length}</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Filter by property, agency, assignee, WO#…"
+                  value={dashActiveFilter}
+                  onChange={e => setDashActiveFilter(e.target.value)}
+                  style={{ border: '1px solid #c0d0f0', borderRadius: 7, padding: '6px 12px', fontSize: 13, width: 280, outline: 'none' }}
+                />
+              </div>
+              {sorted.length === 0 ? (
+                <div style={{ padding: '24px 18px', color: '#aaa', fontSize: 13, textAlign: 'center' }}>
+                  {filt ? 'No active work orders match that filter.' : 'No active work orders.'}
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: '#f0f4ff', textAlign: 'left' }}>
+                        {['WO #','Property','Rental Agency','Scheduled','Assigned To','Clean Price',''].map(h => (
+                          <th key={h} style={{ padding: '9px 12px', fontWeight: 700, color: '#1a3a7a', fontSize: 12, whiteSpace: 'nowrap', borderBottom: '1px solid #e0e8f0' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map((wo, i) => {
+                        const prop = getProp(wo);
+                        const isOverdue = wo.scheduledDate && wo.scheduledDate < todayStr;
+                        return (
+                          <tr key={wo.number} style={{ background: i % 2 === 0 ? '#fff' : '#f9fbff', borderBottom: '1px solid #edf1f8' }}
+                            onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = '#eef3fd'}
+                            onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = i % 2 === 0 ? '#fff' : '#f9fbff'}
+                          >
+                            <td style={{ padding: '9px 12px', fontWeight: 700, color: '#1a3a7a', whiteSpace: 'nowrap' }}>{wo.number}</td>
+                            <td style={{ padding: '9px 12px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.propertyName || '—'}</td>
+                            <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: '#555' }}>{prop?.rentalAgency || '—'}</td>
+                            <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
+                              {wo.scheduledDate
+                                ? <span style={{ fontWeight: 600, color: isOverdue ? '#c00' : '#222' }}>
+                                    {isOverdue && '⚠️ '}{new Date(wo.scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </span>
+                                : <span style={{ color: '#aaa' }}>Unscheduled</span>}
+                            </td>
+                            <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: '#444' }}>{wo.assignedTo || <span style={{ color: '#aaa' }}>Unassigned</span>}</td>
+                            <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', fontWeight: 600, color: wo.cleanPrice ? '#2a9d2a' : '#aaa' }}>
+                              {wo.cleanPrice ? `$${parseFloat(wo.cleanPrice).toFixed(2)}` : '—'}
+                            </td>
+                            <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
+                              <button onClick={() => openWODetail(wo, 'home')}
+                                style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Calendar */}
         {(() => {
