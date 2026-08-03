@@ -345,6 +345,10 @@ function App() {
   const [groupLineItems, setGroupLineItems] = React.useState<GroupLineItem[]>([]);
   const [groupBillingName, setGroupBillingName] = React.useState('');
   const [groupBillingNote, setGroupBillingNote] = React.useState('');
+  // Revenue report filters
+  const [revFrom, setRevFrom] = React.useState('');
+  const [revTo, setRevTo] = React.useState('');
+  const [revGroupBy, setRevGroupBy] = React.useState<'agency'|'tech'|'month'>('agency');
 
   // Expense state
   const [selectedWOForExpenses, setSelectedWOForExpenses] = React.useState<WorkOrder | null>(null);
@@ -3233,50 +3237,161 @@ function App() {
   if (page === 'reportrevenue') {
     const now = new Date();
     const thisMonth = now.toISOString().slice(0, 7);
+
+    // All invoiced/sent/paid cleans with their prices
     const revenueWOs = workOrders.filter(w => ['invoiced','sent','paid','nocharge'].includes(w.status));
-    const byMonth: Record<string, number> = {};
-    allExpenses.filter(e => ['invoiced','sent','paid'].includes(e.status)).forEach(e => {
-      const m = (e.scheduled_date || e.created_at || '').slice(0, 7);
-      if (m) byMonth[m] = (byMonth[m] || 0) + (parseFloat(e.total_cost) || 0);
+
+    const filtered = revenueWOs.filter(wo => {
+      const d = wo.scheduledDate || '';
+      if (revFrom && d < revFrom) return false;
+      if (revTo && d > revTo) return false;
+      return true;
     });
-    const months = Object.keys(byMonth).sort().reverse().slice(0, 12);
-    const totalRevenue = Object.values(byMonth).reduce((a, b) => a + b, 0);
+
+    // Per-clean enriched row
+    const rows = filtered.map(wo => {
+      const prop = properties.find((p: PropertyForm) => p.propertyName === wo.propertyName);
+      const revenue = parseFloat(wo.cleanPrice || prop?.cleanPrice || '0') || 0;
+      const tech = wo.assignedTo || '—';
+      const profile = teamProfiles.find(tp => tp.username === tech);
+      const payPct = parseFloat(profile?.payRate || '0') / 100;
+      const techPay = revenue * payPct;
+      const profit = revenue - techPay;
+      const agency = prop?.rentalAgency || '(No Agency)';
+      return { wo, prop, revenue, tech, payPct, techPay, profit, agency };
+    });
+
+    const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
+    const totalTechPay = rows.reduce((s, r) => s + r.techPay, 0);
+    const totalProfit  = rows.reduce((s, r) => s + r.profit, 0);
+
+    // Group rows
+    type GroupKey = string;
+    const groups: Record<GroupKey, typeof rows> = {};
+    rows.forEach(r => {
+      let key = '';
+      if (revGroupBy === 'agency') key = r.agency;
+      else if (revGroupBy === 'tech') key = r.tech;
+      else key = (r.wo.scheduledDate || '????-??').slice(0, 7);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+    const sortedGroups = Object.keys(groups).sort();
+
+    const fmt = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
     return (
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
-        <h1 style={{ color: '#1a3a7a', marginBottom: 4 }}>📈 Revenue Report</h1>
-        <p style={{ color: '#666', marginBottom: 24 }}>Revenue from invoiced, sent, and paid cleans.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 28 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <h1 style={{ margin: 0, color: '#1a3a7a' }}>📈 Revenue Report</h1>
+          <button onClick={() => setPage('home')} style={{ background: '#888', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer' }}>← Back</button>
+        </div>
+
+        {/* Filters */}
+        <div style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', boxShadow: '0 2px 8px rgba(26,58,122,0.08)', marginBottom: 20, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>From
+            <input type="date" value={revFrom} onChange={e => setRevFrom(e.target.value)} style={{ display: 'block', marginTop: 4, padding: '6px 8px', border: '1px solid #ccc', borderRadius: 6, fontSize: 13 }} />
+          </label>
+          <label style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>To
+            <input type="date" value={revTo} onChange={e => setRevTo(e.target.value)} style={{ display: 'block', marginTop: 4, padding: '6px 8px', border: '1px solid #ccc', borderRadius: 6, fontSize: 13 }} />
+          </label>
+          <label style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Group By
+            <select value={revGroupBy} onChange={e => setRevGroupBy(e.target.value as 'agency'|'tech'|'month')} style={{ display: 'block', marginTop: 4, padding: '6px 8px', border: '1px solid #ccc', borderRadius: 6, fontSize: 13 }}>
+              <option value="agency">Rental Agency</option>
+              <option value="tech">Tech</option>
+              <option value="month">Month</option>
+            </select>
+          </label>
+          {(revFrom || revTo) && <button onClick={() => { setRevFrom(''); setRevTo(''); }} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '7px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-end' }}>✕ Clear</button>}
+        </div>
+
+        {/* KPI cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
           {[
-            { label: 'Total Revenue', value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: '#2a9d2a' },
-            { label: 'Billable WOs', value: revenueWOs.length, color: '#1a3a7a' },
-            { label: `${thisMonth} Revenue`, value: `$${(byMonth[thisMonth] || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: '#0099FF' },
+            { label: 'Total Revenue', value: fmt(totalRevenue), color: '#2a9d2a' },
+            { label: 'Total Tech Pay', value: fmt(totalTechPay), color: '#e67e22' },
+            { label: 'Net Remaining', value: fmt(totalProfit), color: '#1a3a7a' },
+            { label: 'Cleans', value: rows.length, color: '#0099FF' },
           ].map(c => (
-            <div key={c.label} style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', boxShadow: '0 2px 8px rgba(26,58,122,0.08)', borderTop: `4px solid ${c.color}` }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.value}</div>
-              <div style={{ fontSize: 13, color: '#555', marginTop: 4 }}>{c.label}</div>
+            <div key={c.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 2px 8px rgba(26,58,122,0.08)', borderTop: `4px solid ${c.color}` }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{c.value}</div>
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{c.label}</div>
             </div>
           ))}
         </div>
-        <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', boxShadow: '0 2px 8px rgba(26,58,122,0.08)' }}>
-          <h3 style={{ margin: '0 0 16px', color: '#1a3a7a' }}>Monthly Breakdown</h3>
-          {months.length === 0 ? <p style={{ color: '#aaa' }}>No revenue data yet.</p> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#f0f4ff' }}>
-                <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#1a3a7a' }}>Month</th>
-                <th style={{ textAlign: 'right', padding: '8px 12px', fontSize: 13, color: '#1a3a7a' }}>Revenue</th>
-              </tr></thead>
-              <tbody>
-                {months.map(m => (
-                  <tr key={m} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '8px 12px', fontSize: 14 }}>{new Date(m + '-15').toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 14, fontWeight: 700, color: '#2a9d2a', textAlign: 'right' }}>${(byMonth[m] || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+
+        {/* Grouped detail */}
+        {rows.length === 0 ? <p style={{ color: '#aaa' }}>No invoiced cleans match the filter.</p> : sortedGroups.map(gk => {
+          const gRows = groups[gk];
+          const gRev   = gRows.reduce((s, r) => s + r.revenue, 0);
+          const gPay   = gRows.reduce((s, r) => s + r.techPay, 0);
+          const gProfit= gRows.reduce((s, r) => s + r.profit, 0);
+          return (
+            <div key={gk} style={{ background: '#fff', borderRadius: 12, marginBottom: 20, boxShadow: '0 2px 8px rgba(26,58,122,0.08)', overflow: 'hidden' }}>
+              {/* Group header */}
+              <div style={{ background: '#1a3a7a', color: '#fff', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontWeight: 800, fontSize: 15 }}>{revGroupBy === 'month' ? new Date(gk + '-15').toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : gk}</span>
+                <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                  <span>Revenue: <strong>{fmt(gRev)}</strong></span>
+                  <span>Tech Pay: <strong style={{ color: '#ffcc80' }}>{fmt(gPay)}</strong></span>
+                  <span>Remaining: <strong style={{ color: '#a5d6a7' }}>{fmt(gProfit)}</strong></span>
+                </div>
+              </div>
+              {/* Rows */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f0f4ff' }}>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#555', fontWeight: 600 }}>WO #</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#555', fontWeight: 600 }}>Property</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#555', fontWeight: 600 }}>Date</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#555', fontWeight: 600 }}>Tech</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#555', fontWeight: 600 }}>Pay %</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'right', color: '#555', fontWeight: 600 }}>Revenue</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'right', color: '#555', fontWeight: 600 }}>Tech Pay</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'right', color: '#555', fontWeight: 600 }}>Remaining</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#555', fontWeight: 600 }}>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <button onClick={() => setPage('home')} style={{ marginTop: 20, padding: '8px 20px', background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>← Back to Dashboard</button>
+                </thead>
+                <tbody>
+                  {gRows.map((r, i) => (
+                    <tr key={r.wo.number} style={{ background: i % 2 === 0 ? '#fff' : '#f9fbff', borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '7px 12px', color: '#888', fontSize: 12 }}>{r.wo.number}</td>
+                      <td style={{ padding: '7px 12px', fontWeight: 600 }}>{r.wo.propertyName}</td>
+                      <td style={{ padding: '7px 12px', color: '#555' }}>{r.wo.scheduledDate || '—'}</td>
+                      <td style={{ padding: '7px 12px' }}>{r.tech}</td>
+                      <td style={{ padding: '7px 12px', color: '#888' }}>{r.payPct > 0 ? `${(r.payPct*100).toFixed(0)}%` : '—'}</td>
+                      <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#2a9d2a' }}>{r.revenue > 0 ? fmt(r.revenue) : '—'}</td>
+                      <td style={{ padding: '7px 12px', textAlign: 'right', color: '#e67e22', fontWeight: 600 }}>{r.techPay > 0 ? fmt(r.techPay) : '—'}</td>
+                      <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#1a3a7a' }}>{r.revenue > 0 ? fmt(r.profit) : '—'}</td>
+                      <td style={{ padding: '7px 12px' }}>
+                        <span style={{ background: r.wo.status === 'paid' ? '#27ae60' : r.wo.status === 'sent' ? '#1a3a7a' : '#e67e22', color: '#fff', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{r.wo.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#e8f0fe', fontWeight: 700 }}>
+                    <td colSpan={5} style={{ padding: '8px 12px', color: '#1a3a7a' }}>Subtotal ({gRows.length} cleans)</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#2a9d2a' }}>{fmt(gRev)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#e67e22' }}>{fmt(gPay)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#1a3a7a' }}>{fmt(gProfit)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          );
+        })}
+
+        {/* Grand total footer */}
+        {rows.length > 0 && (
+          <div style={{ background: '#1a3a7a', color: '#fff', borderRadius: 12, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, fontSize: 15, fontWeight: 700 }}>
+            <span>Grand Total ({rows.length} cleans)</span>
+            <span style={{ color: '#a5d6a7' }}>Revenue: {fmt(totalRevenue)}</span>
+            <span style={{ color: '#ffcc80' }}>Tech Pay: {fmt(totalTechPay)}</span>
+            <span style={{ color: '#ffffff', fontSize: 18 }}>Net: {fmt(totalProfit)}</span>
+          </div>
+        )}
       </div>
     );
   }
