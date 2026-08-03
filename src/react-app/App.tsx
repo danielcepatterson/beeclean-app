@@ -3824,11 +3824,11 @@ function App() {
           <table className="wo-table" style={{ width: '100%', maxWidth: 1200 }}>
             <thead>
               <tr>
-                <th style={{ width: 36 }}>
+                <th style={{ width: 44 }}>
                   <input type="checkbox" checked={allChecked} onChange={e => {
                     if (e.target.checked) setGroupInvoiceSelected(new Set(invoicedOrders.map((wo: WorkOrder) => wo.number)));
                     else setGroupInvoiceSelected(new Set());
-                  }} title="Select all" />
+                  }} title="Select all" style={{ width: 20, height: 20, cursor: 'pointer' }} />
                 </th>
                 <th>WO #</th>
                 <th>Property</th>
@@ -3846,12 +3846,12 @@ function App() {
                 const isChecked = groupInvoiceSelected.has(wo.number);
                 return (
                   <tr key={idx} style={{ background: isChecked ? '#f0e8ff' : undefined }}>
-                    <td style={{ textAlign: 'center' }}>
+                    <td style={{ textAlign: 'center', verticalAlign: 'middle', padding: '0 8px' }}>
                       <input type="checkbox" checked={isChecked} onChange={e => {
                         const next = new Set(groupInvoiceSelected);
                         if (e.target.checked) next.add(wo.number); else next.delete(wo.number);
                         setGroupInvoiceSelected(next);
-                      }} />
+                      }} style={{ width: 20, height: 20, cursor: 'pointer' }} />
                     </td>
                     <td data-label="WO #">{wo.number}</td>
                     <td data-label="Property">{wo.propertyName}</td>
@@ -3863,8 +3863,9 @@ function App() {
                         {wo.status === 'nocharge' ? 'No Charge' : wo.status === 'sent' ? 'Sent' : 'Created'}
                       </span>
                     </td>
-                  <td style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    <button style={{ background: '#555', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={() => openInvoicePreview(wo)}>📄 Preview</button>
+                  <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                    <button style={{ background: '#555', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }} onClick={() => openInvoicePreview(wo)}>📄 Preview</button>
                     <button style={{ background: '#6c3db5', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={async () => {
                       const exps = await api.fetchWorkOrderExpenses(wo.number);
                       const savedBillingDesc = localStorage.getItem(`bd_${wo.number}`) || '';
@@ -3899,17 +3900,18 @@ function App() {
                       });
                     }}>✏️ Edit</button>
                     {(wo.status === 'invoiced' || wo.status === 'nocharge') && (
-                      <button style={{ background: '#0077cc', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={() => markSentWorkOrder(wo)}>📤 Mark Sent</button>
+                      <button style={{ background: '#0077cc', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }} onClick={() => markSentWorkOrder(wo)}>📤 Mark Sent</button>
                     )}
                     {wo.status === 'sent' && (
                       <>
-                        <button style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={() => paidWorkOrder(wo.number)}>✓ Mark Paid</button>
-                        <button style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={async () => { const exps = await api.fetchWorkOrderExpenses(wo.number); printInvoiceDoc(wo, exps); }}>🖨️ Print</button>
+                        <button style={{ background: '#2a9d2a', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }} onClick={() => paidWorkOrder(wo.number)}>✓ Mark Paid</button>
+                        <button style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }} onClick={async () => { const exps = await api.fetchWorkOrderExpenses(wo.number); printInvoiceDoc(wo, exps); }}>🖨️ Print</button>
                       </>
                     )}
                     {wo.status === 'invoiced' && (
-                      <button style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={async () => { const exps = await api.fetchWorkOrderExpenses(wo.number); printInvoiceDoc(wo, exps); }}>🖨️ Print</button>
+                      <button style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }} onClick={async () => { const exps = await api.fetchWorkOrderExpenses(wo.number); printInvoiceDoc(wo, exps); }}>🖨️ Print</button>
                     )}
+                    </div>
                   </td>
                 </tr>
                 );
