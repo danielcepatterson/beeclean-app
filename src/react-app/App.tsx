@@ -337,6 +337,14 @@ function App() {
     editExpenses: Array<WorkOrderExpense & { markup: number }>;
     expensesLoading: boolean;
   }>({ title: '', instructions: '', billingDescription: '', editExpenses: [], expensesLoading: false });
+  // Group invoice state
+  const [groupInvoiceSelected, setGroupInvoiceSelected] = React.useState<Set<string>>(new Set());
+  const [groupInvoicePreview, setGroupInvoicePreview] = React.useState(false);
+  const [groupInvoiceEdit, setGroupInvoiceEdit] = React.useState(false);
+  type GroupLineItem = { woNumber: string; propertyName: string; scheduledDate: string; description: string; amount: string; };
+  const [groupLineItems, setGroupLineItems] = React.useState<GroupLineItem[]>([]);
+  const [groupBillingName, setGroupBillingName] = React.useState('');
+  const [groupBillingNote, setGroupBillingNote] = React.useState('');
 
   // Expense state
   const [selectedWOForExpenses, setSelectedWOForExpenses] = React.useState<WorkOrder | null>(null);
@@ -3751,38 +3759,110 @@ function App() {
       setTimeout(() => { win.print(); win.close(); }, 400);
     };
 
+    const buildGroupInvoiceHTML = (items: GroupLineItem[], billingName: string, billingNote: string) => {
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const todayMMDDYY = (() => { const n = new Date(); const m = String(n.getMonth()+1).padStart(2,'0'); const d = String(n.getDate()).padStart(2,'0'); const y = String(n.getFullYear()).slice(2); return m+d+y; })();
+      const invoiceNum = `GRP-${todayMMDDYY}`;
+      const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+      const rows = items.map((item, i) => `<tr style="background:${i%2===0?'#f0f4ff':'#fff'};"><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${i+1}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${item.description}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;">${item.scheduledDate||'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #dde;font-size:13px;text-align:right;">${item.amount?'$'+parseFloat(item.amount).toFixed(2):'—'}</td></tr>`).join('');
+      return `<!DOCTYPE html><html><head><title>Group Invoice ${invoiceNum}</title><style>body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111;}table{border-collapse:collapse;width:100%;}@media print{body{padding:16px;}}</style></head><body>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #1a3a7a;">
+          <img src="/logo.png" alt="BeClean" style="height:80px;object-fit:contain;" />
+          <div style="text-align:right;"><div style="font-size:30px;font-weight:900;color:#1a3a7a;letter-spacing:2px;">INVOICE</div>
+            <table style="margin-top:8px;font-size:13px;border-collapse:collapse;"><tr><td style="padding-right:12px;color:#555;font-weight:600;">Invoice #</td><td style="font-weight:700;">${invoiceNum}</td></tr><tr><td style="padding-right:12px;color:#555;font-weight:600;">Date</td><td>${today}</td></tr></table>
+          </div>
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:8px;padding:14px;margin-bottom:24px;max-width:320px;">
+          <div style="font-weight:800;color:#1a3a7a;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Bill To</div>
+          <div style="font-weight:700;font-size:15px;">${billingName||'—'}</div>
+          ${billingNote?`<div style="margin-top:4px;color:#555;font-size:13px;">${billingNote}</div>`:''}
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:4px;"><thead><tr style="background:#1a3a7a;color:#fff;"><th style="padding:10px 12px;text-align:left;font-size:12px;width:36px;">#</th><th style="padding:10px 12px;text-align:left;font-size:12px;">Property / Description</th><th style="padding:10px 12px;text-align:left;font-size:12px;width:110px;">Date</th><th style="padding:10px 12px;text-align:right;font-size:12px;width:120px;">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:32px;"><table style="border-collapse:collapse;min-width:240px;"><tr><td style="padding:8px 14px;font-weight:600;color:#555;border-top:1px solid #ddd;font-size:13px;">Subtotal</td><td style="padding:8px 14px;text-align:right;border-top:1px solid #ddd;font-size:13px;">${total>0?'$'+total.toFixed(2):'—'}</td></tr><tr style="background:#1a3a7a;color:#fff;"><td style="padding:10px 14px;font-weight:900;font-size:15px;">TOTAL</td><td style="padding:10px 14px;text-align:right;font-weight:900;font-size:15px;">${total>0?'$'+total.toFixed(2):'—'}</td></tr></table></div>
+        <div style="margin-top:24px;text-align:center;font-size:14px;font-weight:600;color:#1a3a7a;border-top:1px solid #eee;padding-top:16px;">Thank you for your business!</div>
+      </body></html>`;
+    };
+
+    const openGroupEdit = () => {
+      const selected = invoicedOrders.filter(wo => groupInvoiceSelected.has(wo.number));
+      const items: GroupLineItem[] = selected.map(wo => {
+        const prop = properties.find((p: PropertyForm) => p.propertyName === wo.propertyName);
+        const price = wo.cleanPrice || prop?.cleanPrice || '';
+        return { woNumber: wo.number, propertyName: wo.propertyName, scheduledDate: wo.scheduledDate || '', description: `Cleaning Service — ${wo.propertyName}`, amount: price };
+      });
+      setGroupLineItems(items);
+      setGroupInvoiceEdit(true);
+    };
+
+    const allChecked = invoicedOrders.length > 0 && invoicedOrders.every(wo => groupInvoiceSelected.has(wo.number));
+
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", padding: "1rem" }}>
-        <h1>Invoice List</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 1200, marginBottom: 12 }}>
+          <h1 style={{ margin: 0 }}>Invoice List</h1>
+          {groupInvoiceSelected.size > 0 && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 13, color: '#555' }}>{groupInvoiceSelected.size} selected</span>
+              <button onClick={openGroupEdit} style={{ background: '#6c3db5', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>✏️ Edit Group Invoice</button>
+              <button onClick={() => {
+                const selected = invoicedOrders.filter(wo => groupInvoiceSelected.has(wo.number));
+                const items: GroupLineItem[] = selected.map(wo => {
+                  const prop = properties.find((p: PropertyForm) => p.propertyName === wo.propertyName);
+                  const price = wo.cleanPrice || prop?.cleanPrice || '';
+                  return { woNumber: wo.number, propertyName: wo.propertyName, scheduledDate: wo.scheduledDate || '', description: `Cleaning Service — ${wo.propertyName}`, amount: price };
+                });
+                setGroupLineItems(items);
+                setGroupInvoicePreview(true);
+              }} style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>📄 Preview Group Invoice</button>
+              <button onClick={() => setGroupInvoiceSelected(new Set())} style={{ background: '#aaa', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>✕ Clear</button>
+            </div>
+          )}
+        </div>
         {invoicedOrders.length === 0 ? (
           <p>No invoiced work orders yet.</p>
         ) : (
-          <table className="wo-table">
+          <table className="wo-table" style={{ width: '100%', maxWidth: 1200 }}>
             <thead>
               <tr>
+                <th style={{ width: 36 }}>
+                  <input type="checkbox" checked={allChecked} onChange={e => {
+                    if (e.target.checked) setGroupInvoiceSelected(new Set(invoicedOrders.map((wo: WorkOrder) => wo.number)));
+                    else setGroupInvoiceSelected(new Set());
+                  }} title="Select all" />
+                </th>
                 <th>WO #</th>
                 <th>Property</th>
-                <th>Title</th>
+                <th>Rental Agency</th>
+                <th>Clean Price</th>
                 <th>Date</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {invoicedOrders.map((wo: WorkOrder, idx: number) => (
-                <tr key={idx}>
-                  <td data-label="WO #">{wo.number}</td>
-                  <td data-label="Property">{wo.propertyName}</td>
-                  <td data-label="Title">{wo.title}</td>
-                  <td data-label="Date">{wo.scheduledDate || '—'}</td>
-                  <td data-label="Status">
-                    <span style={{
-                      background: wo.status === 'nocharge' ? '#888' : wo.status === 'sent' ? '#1a3a7a' : '#2a9d2a',
-                      color: '#fff', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700
-                    }}>
-                      {wo.status === 'nocharge' ? 'No Charge' : wo.status === 'sent' ? 'Sent' : 'Created'}
-                    </span>
-                  </td>
+              {invoicedOrders.map((wo: WorkOrder, idx: number) => {
+                const prop = properties.find((p: PropertyForm) => p.propertyName === wo.propertyName);
+                const cleanPrice = parseFloat(wo.cleanPrice || prop?.cleanPrice || '0') || 0;
+                const isChecked = groupInvoiceSelected.has(wo.number);
+                return (
+                  <tr key={idx} style={{ background: isChecked ? '#f0e8ff' : undefined }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input type="checkbox" checked={isChecked} onChange={e => {
+                        const next = new Set(groupInvoiceSelected);
+                        if (e.target.checked) next.add(wo.number); else next.delete(wo.number);
+                        setGroupInvoiceSelected(next);
+                      }} />
+                    </td>
+                    <td data-label="WO #">{wo.number}</td>
+                    <td data-label="Property">{wo.propertyName}</td>
+                    <td data-label="Rental Agency" style={{ color: '#555', fontSize: 13 }}>{prop?.rentalAgency || '—'}</td>
+                    <td data-label="Clean Price" style={{ fontWeight: 700, color: '#2a9d2a' }}>{cleanPrice > 0 ? `$${cleanPrice.toFixed(2)}` : '—'}</td>
+                    <td data-label="Date">{wo.scheduledDate || '—'}</td>
+                    <td data-label="Status">
+                      <span style={{ background: wo.status === 'nocharge' ? '#888' : wo.status === 'sent' ? '#1a3a7a' : '#2a9d2a', color: '#fff', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
+                        {wo.status === 'nocharge' ? 'No Charge' : wo.status === 'sent' ? 'Sent' : 'Created'}
+                      </span>
+                    </td>
                   <td style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     <button style={{ background: '#555', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={() => openInvoicePreview(wo)}>📄 Preview</button>
                     <button style={{ background: '#6c3db5', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', fontSize: 12 }} onClick={async () => {
@@ -3832,11 +3912,97 @@ function App() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
         <button style={{ marginTop: 16 }} onClick={() => setPage("home")}>Return to Home</button>
+
+        {/* ── Group Invoice Preview Modal ── */}
+        {groupInvoicePreview && (
+          <div className="photo-modal">
+            <div className="photo-modal-content" style={{ maxWidth: 720 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h2 style={{ margin: 0 }}>Group Invoice Preview</h2>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { const win = window.open('','_blank','width=800,height=900'); if(!win)return; win.document.write(buildGroupInvoiceHTML(groupLineItems, groupBillingName, groupBillingNote)); win.document.close(); win.focus(); setTimeout(()=>{win.print();win.close();},400); }} style={{ background: '#0099FF', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontWeight: 700, cursor: 'pointer' }}>🖨️ Print</button>
+                  <button onClick={() => setGroupInvoicePreview(false)} style={{ background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontWeight: 700, cursor: 'pointer' }}>✕ Close</button>
+                </div>
+              </div>
+              <div style={{ marginBottom: 14, display: 'flex', gap: 12 }}>
+                <label style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>Bill To Name<input value={groupBillingName} onChange={e => setGroupBillingName(e.target.value)} placeholder="e.g. VRBO / Airbnb" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 9px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} /></label>
+                <label style={{ fontWeight: 600, fontSize: 13, flex: 2 }}>Note<input value={groupBillingNote} onChange={e => setGroupBillingNote(e.target.value)} placeholder="optional" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 9px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} /></label>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead><tr style={{ background: '#1a3a7a', color: '#fff' }}><th style={{ padding: '8px 10px', textAlign: 'left' }}>#</th><th style={{ padding: '8px 10px', textAlign: 'left' }}>Property / Description</th><th style={{ padding: '8px 10px', textAlign: 'left' }}>Date</th><th style={{ padding: '8px 10px', textAlign: 'right' }}>Amount</th></tr></thead>
+                <tbody>
+                  {groupLineItems.map((item, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#f0f4ff' : '#fff' }}>
+                      <td style={{ padding: '8px 10px', borderBottom: '1px solid #dde' }}>{i+1}</td>
+                      <td style={{ padding: '8px 10px', borderBottom: '1px solid #dde' }}>{item.description}</td>
+                      <td style={{ padding: '8px 10px', borderBottom: '1px solid #dde' }}>{item.scheduledDate || '—'}</td>
+                      <td style={{ padding: '8px 10px', borderBottom: '1px solid #dde', textAlign: 'right', fontWeight: 700, color: '#2a9d2a' }}>{item.amount ? `$${parseFloat(item.amount).toFixed(2)}` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ textAlign: 'right', fontWeight: 800, fontSize: 16, marginTop: 10, color: '#1a3a7a' }}>
+                Total: ${groupLineItems.reduce((s, i) => s + (parseFloat(i.amount)||0), 0).toFixed(2)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Group Invoice Edit Modal ── */}
+        {groupInvoiceEdit && (
+          <div className="photo-modal">
+            <div className="photo-modal-content" style={{ maxWidth: 780 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h2 style={{ margin: 0 }}>Edit Group Invoice</h2>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { setGroupInvoicePreview(true); setGroupInvoiceEdit(false); }} style={{ background: '#0099FF', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontWeight: 700, cursor: 'pointer' }}>📄 Preview</button>
+                  <button onClick={() => { const win = window.open('','_blank','width=800,height=900'); if(!win)return; win.document.write(buildGroupInvoiceHTML(groupLineItems, groupBillingName, groupBillingNote)); win.document.close(); win.focus(); setTimeout(()=>{win.print();win.close();},400); }} style={{ background: '#1a3a7a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontWeight: 700, cursor: 'pointer' }}>🖨️ Print</button>
+                  <button onClick={() => setGroupInvoiceEdit(false)} style={{ background: '#888', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontWeight: 600, cursor: 'pointer' }}>✕ Close</button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+                <label style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>Bill To Name<input value={groupBillingName} onChange={e => setGroupBillingName(e.target.value)} placeholder="e.g. VRBO / Airbnb" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 9px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} /></label>
+                <label style={{ fontWeight: 600, fontSize: 13, flex: 2 }}>Note<input value={groupBillingNote} onChange={e => setGroupBillingNote(e.target.value)} placeholder="optional" style={{ display: 'block', width: '100%', marginTop: 4, padding: '6px 9px', border: '1px solid #aaa', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} /></label>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead><tr style={{ background: '#1a3a7a', color: '#fff' }}>
+                  <th style={{ padding: '8px 10px', textAlign: 'left' }}>Description</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'left', width: 110 }}>Date</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'right', width: 110 }}>Amount ($)</th>
+                  <th style={{ padding: '8px 10px', width: 40 }}></th>
+                </tr></thead>
+                <tbody>
+                  {groupLineItems.map((item, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#f0f4ff' : '#fff' }}>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #dde' }}>
+                        <input value={item.description} onChange={e => setGroupLineItems(rows => rows.map((r,j)=>j===i?{...r,description:e.target.value}:r))} style={{ width: '100%', padding: '4px 7px', border: '1px solid #ccc', borderRadius: 4, fontSize: 13, boxSizing: 'border-box' }} />
+                      </td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #dde' }}>
+                        <input type="date" value={item.scheduledDate} onChange={e => setGroupLineItems(rows => rows.map((r,j)=>j===i?{...r,scheduledDate:e.target.value}:r))} style={{ width: '100%', padding: '4px 7px', border: '1px solid #ccc', borderRadius: 4, fontSize: 13, boxSizing: 'border-box' }} />
+                      </td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #dde' }}>
+                        <input type="number" min="0" step="0.01" value={item.amount} onChange={e => setGroupLineItems(rows => rows.map((r,j)=>j===i?{...r,amount:e.target.value}:r))} style={{ width: '100%', padding: '4px 7px', border: '1px solid #ccc', borderRadius: 4, fontSize: 13, textAlign: 'right', boxSizing: 'border-box' }} />
+                      </td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #dde', textAlign: 'center' }}>
+                        <button onClick={() => setGroupLineItems(rows => rows.filter((_,j)=>j!==i))} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                <button onClick={() => setGroupLineItems(rows => [...rows, { woNumber: '', propertyName: '', scheduledDate: '', description: '', amount: '' }])} style={{ background: '#e8f0fe', color: '#1a3a7a', border: '1px solid #b0c4f0', borderRadius: 6, padding: '6px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>+ Add Line</button>
+                <div style={{ fontWeight: 800, fontSize: 15, color: '#1a3a7a' }}>Total: ${groupLineItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0).toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Edit Invoice Modal ── */}
         {editingInvoiceWO && (
