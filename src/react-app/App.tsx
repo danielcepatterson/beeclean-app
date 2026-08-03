@@ -349,6 +349,7 @@ function App() {
   const [revFrom, setRevFrom] = React.useState('');
   const [revTo, setRevTo] = React.useState('');
   const [revGroupBy, setRevGroupBy] = React.useState<'agency'|'tech'|'month'>('agency');
+  const [revOmitted, setRevOmitted] = React.useState<Set<string>>(new Set());
 
   // Expense state
   const [selectedWOForExpenses, setSelectedWOForExpenses] = React.useState<WorkOrder | null>(null);
@@ -3261,9 +3262,9 @@ function App() {
       return { wo, prop, revenue, tech, payPct, techPay, profit, agency };
     });
 
-    const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
-    const totalTechPay = rows.reduce((s, r) => s + r.techPay, 0);
-    const totalProfit  = rows.reduce((s, r) => s + r.profit, 0);
+    const totalRevenue = rows.filter(r => !revOmitted.has(r.wo.number)).reduce((s, r) => s + r.revenue, 0);
+    const totalTechPay = rows.filter(r => !revOmitted.has(r.wo.number)).reduce((s, r) => s + r.techPay, 0);
+    const totalProfit  = rows.filter(r => !revOmitted.has(r.wo.number)).reduce((s, r) => s + r.profit, 0);
 
     // Group rows
     type GroupKey = string;
@@ -3303,6 +3304,7 @@ function App() {
             </select>
           </label>
           {(revFrom || revTo) && <button onClick={() => { setRevFrom(''); setRevTo(''); }} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '7px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-end' }}>✕ Clear</button>}
+          {revOmitted.size > 0 && <button onClick={() => setRevOmitted(new Set())} style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 6, padding: '7px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-end', color: '#7a5c00' }}>↩ Restore {revOmitted.size} omitted</button>}
         </div>
 
         {/* KPI cards */}
@@ -3350,32 +3352,42 @@ function App() {
                     <th style={{ padding: '7px 12px', textAlign: 'right', color: '#555', fontWeight: 600 }}>Tech Pay</th>
                     <th style={{ padding: '7px 12px', textAlign: 'right', color: '#555', fontWeight: 600 }}>Remaining</th>
                     <th style={{ padding: '7px 12px', textAlign: 'left', color: '#555', fontWeight: 600 }}>Status</th>
+                    <th style={{ padding: '7px 6px', width: 32 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {gRows.map((r, i) => (
-                    <tr key={r.wo.number} style={{ background: i % 2 === 0 ? '#fff' : '#f9fbff', borderBottom: '1px solid #eee' }}>
+                  {gRows.map((r, i) => {
+                    const omitted = revOmitted.has(r.wo.number);
+                    return (
+                    <tr key={r.wo.number} style={{ background: omitted ? '#f5f5f5' : i % 2 === 0 ? '#fff' : '#f9fbff', borderBottom: '1px solid #eee', opacity: omitted ? 0.45 : 1 }}>
                       <td style={{ padding: '7px 12px', color: '#888', fontSize: 12 }}>{r.wo.number}</td>
-                      <td style={{ padding: '7px 12px', fontWeight: 600 }}>{r.wo.propertyName}</td>
+                      <td style={{ padding: '7px 12px', fontWeight: omitted ? 400 : 600, textDecoration: omitted ? 'line-through' : 'none', color: omitted ? '#aaa' : undefined }}>{r.wo.propertyName}</td>
                       <td style={{ padding: '7px 12px', color: '#555' }}>{r.wo.scheduledDate || '—'}</td>
                       <td style={{ padding: '7px 12px' }}>{r.tech}</td>
                       <td style={{ padding: '7px 12px', color: '#888' }}>{r.payPct > 0 ? `${(r.payPct*100).toFixed(0)}%` : '—'}</td>
-                      <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#2a9d2a' }}>{r.revenue > 0 ? fmt(r.revenue) : '—'}</td>
-                      <td style={{ padding: '7px 12px', textAlign: 'right', color: '#e67e22', fontWeight: 600 }}>{r.techPay > 0 ? fmt(r.techPay) : '—'}</td>
-                      <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#1a3a7a' }}>{r.revenue > 0 ? fmt(r.profit) : '—'}</td>
+                      <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: omitted ? '#aaa' : '#2a9d2a' }}>{r.revenue > 0 ? fmt(r.revenue) : '—'}</td>
+                      <td style={{ padding: '7px 12px', textAlign: 'right', color: omitted ? '#aaa' : '#e67e22', fontWeight: 600 }}>{r.techPay > 0 ? fmt(r.techPay) : '—'}</td>
+                      <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: omitted ? '#aaa' : '#1a3a7a' }}>{r.revenue > 0 ? fmt(r.profit) : '—'}</td>
                       <td style={{ padding: '7px 12px' }}>
                         <span style={{ background: r.wo.status === 'paid' ? '#27ae60' : r.wo.status === 'sent' ? '#1a3a7a' : '#e67e22', color: '#fff', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{r.wo.status}</span>
                       </td>
-                    </tr>
-                  ))}
+                      <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                        <button onClick={() => setRevOmitted(prev => { const n = new Set(prev); omitted ? n.delete(r.wo.number) : n.add(r.wo.number); return n; })}
+                          title={omitted ? 'Restore' : 'Omit from totals'}
+                          style={{ background: 'none', border: `1px solid ${omitted ? '#aaa' : '#ff4d4d'}`, borderRadius: 4, width: 22, height: 22, cursor: 'pointer', color: omitted ? '#aaa' : '#ff4d4d', fontWeight: 700, fontSize: 13, lineHeight: 1, padding: 0 }}>
+                          {omitted ? '↩' : '✕'}
+                        </button>
+                      </td>
+                    </tr>);
+                  })}
                 </tbody>
                 <tfoot>
                   <tr style={{ background: '#e8f0fe', fontWeight: 700 }}>
-                    <td colSpan={5} style={{ padding: '8px 12px', color: '#1a3a7a' }}>Subtotal ({gRows.length} cleans)</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#2a9d2a' }}>{fmt(gRev)}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#e67e22' }}>{fmt(gPay)}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#1a3a7a' }}>{fmt(gProfit)}</td>
-                    <td></td>
+                    <td colSpan={5} style={{ padding: '8px 12px', color: '#1a3a7a' }}>Subtotal ({gRows.filter(r => !revOmitted.has(r.wo.number)).length} of {gRows.length} cleans)</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#2a9d2a' }}>{fmt(gRows.filter(r=>!revOmitted.has(r.wo.number)).reduce((s,r)=>s+r.revenue,0))}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#e67e22' }}>{fmt(gRows.filter(r=>!revOmitted.has(r.wo.number)).reduce((s,r)=>s+r.techPay,0))}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#1a3a7a' }}>{fmt(gRows.filter(r=>!revOmitted.has(r.wo.number)).reduce((s,r)=>s+r.profit,0))}</td>
+                    <td></td><td></td>
                   </tr>
                 </tfoot>
               </table>
